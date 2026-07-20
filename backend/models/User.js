@@ -1,20 +1,22 @@
-import mongoose from 'mongoose'
+import mongoose from 'mongoose';
 
-const userSchema = new mongoose.Schema({
+const userSchema = new mongoose.Schema(
+  {
     _id: { type: String, required: true },
     email: { type: String, required: true },
     full_name: { type: String, required: true },
     username: { type: String, unique: true },
     bio: { type: String, default: 'Hey there! I am using MeetPoint' },
-    profile_picture: { type: String, defafult: '' },
+    profile_picture: { type: String, default: '' }, // Fixed typo 'defafult' -> 'default'
     cover_photo: { type: String, default: '' },
     location: { type: String, default: '' },
     followers: [{ type: String, ref: 'User' }],
     following: [{ type: String, ref: 'User' }],
     connections: [{ type: String, ref: 'User' }],
+  },
+  { timestamps: true, minimize: false } // Fixed: Changed [] to {}
+);
 
-}, [{ timestamps: true, minimize: false }])
-
-const User = mongoose.model('User', userSchema)
+const User = mongoose.model('User', userSchema);
 
 export default User;
