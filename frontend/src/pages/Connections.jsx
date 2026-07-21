@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { Users, UserPlus, UserCheck, UserRoundPen, MessageSquare } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -100,7 +100,7 @@ const Connections = () => {
                   {
                     currentTab === 'Connections' && (
                       <button onClick={() => navigate(`/messages/${user._id}`)}
-                        className='w-full p-2 text-sm rounded bg-slate-100 
+                        className='w-full p-2 text-sm rounded bg-slate-100
                       hover:bg-slate-200 text-black active:scale-95
                       transition cursor-pointer flex items-center justify-center gap-1'>
                         <MessageSquare className='w-4 h-4' />
