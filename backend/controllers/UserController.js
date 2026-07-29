@@ -185,11 +185,11 @@ export const unfollowUser = async (req, res) => {
     const { id } = req.body;
 
     const user = await User.findById(userId);
-    user.following = user.following.filter((f) => f !== id);
+    user.following = user.following?.filter((f) => f !== id);
     await user.save();
 
     const toUser = await User.findById(id);
-    toUser.followers = toUser.followers.filter((f) => f !== userId);
+    toUser.followers = toUser.followers?.filter((f) => f !== userId);
     await toUser.save();
 
     res.json({
@@ -259,19 +259,19 @@ export const sendConnectionRequest = async (req, res) => {
 // GET USER CONNECTIONS
 export const getUserConnections = async (req, res) => {
   try {
-    const { userdId } = req.auth();
-    const user = await User.findBy(userId).populate(
+    const { userId } = req.auth();
+    const user = await User.findById(userId).populate(
       "connections followers following",
     );
     const connections = user.connections;
     const followers = user.followers;
     const following = user.following;
 
-    const pendingConnections = await Connection.find({
+    const pendingConnections = (await Connection.find({
       to_user_id: userId,
       status: "pending",
     })
-      .populate("from_user_id")
+      .populate("from_user_id"))
       .map((connection) => connection.from_user_id);
     res.json({
       success: true,

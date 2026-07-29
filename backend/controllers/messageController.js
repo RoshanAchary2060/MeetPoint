@@ -1,5 +1,6 @@
 import fs from "fs";
-import imageKit from "../configs/imageKit.js";
+// import imageKit from "../configs/imageKit.js";
+import imagekit from "../configs/imageKit.js";
 import Message from "../models/Message.js";
 
 // CREATE AN EMPTY OBJECT TO STORE SERVER SIDE EVENT CONNECTIONS
@@ -41,7 +42,7 @@ export const sendMessage = async (req, res) => {
 
     if (message_type === "image") {
       const fileBuffer = fs.readFileSync(image.path);
-      const response = await imageKit.upload({
+      const response = await imagekit.upload({
         file: fileBuffer,
         fileName: image.originalname,
       });
@@ -72,7 +73,7 @@ export const sendMessage = async (req, res) => {
 
     if (connections[to_user_id]) {
       connections[to_user_id].write(
-        `data: ${JSON.stringfy(messageWithUserData)}\n\n`,
+        `data: ${JSON.stringify(messageWithUserData)}\n\n`,
       );
     }
   } catch (error) {
@@ -95,7 +96,7 @@ export const getChatMessages = async (req, res) => {
     }).sort({ createdAt: -1 });
     await Message.updateMany(
       {
-        from_userId: to_user_id,
+        from_user_id: to_user_id,
         to_user_id: userId,
       },
       { seen: true },
@@ -111,11 +112,18 @@ export const getChatMessages = async (req, res) => {
 export const getUserRecentMessages = async (req, res) => {
   try {
     const { userId } = req.auth();
-    const messages = await Message.find(
-      {
-        to_user_id: userId,
-      }.populate("from_user_id to_user_id"),
-    ).sort({ createdAt: -1 });
+
+    const messages = await Message.find({
+      to_user_id: userId,
+    })
+      .populate("from_user_id to_user_id")
+      .sort({ createdAt: -1 });
+
+    // const messages = await Message.find(
+    //   {
+    //     to_user_id: userId,
+    //   }.populate("from_user_id to_user_id"),
+    // ).sort({ createdAt: -1 });
 
     res.json({ success: true, messages });
   } catch (error) {

@@ -4,10 +4,12 @@ import { Outlet } from 'react-router-dom'
 import { Menu, X } from 'lucide-react'
 import { dummyUserData } from '../assets/assets'
 import Loading from '../components/Loading'
+import {useSelector} from 'react-redux'
 
 const Layout = () => {
   const [sidebarOpen, setSidebarOpen] = React.useState(true)
-  const user = dummyUserData;
+
+  const user = useSelector((state) => state.user.value);
   return user ? (
     <div className="flex w-full h-screen">
       <Sidebar sidebarOpen={sidebarOpen}
@@ -21,7 +23,7 @@ const Layout = () => {
         rounded-md shadow w-10 h-10 text-gray-600 sm:hidden"
             onClick={() => setSidebarOpen(false)} />
           : <Menu className='absolute top-3 right-3 p-2 z-100 bg-white
-          rounded-md shadow w-10 h-10 text-gray-600 sm:hidden' 
+          rounded-md shadow w-10 h-10 text-gray-600 sm:hidden'
           onClick={() => setSidebarOpen(true)} />
       }
     </div>

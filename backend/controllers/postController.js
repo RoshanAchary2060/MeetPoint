@@ -70,7 +70,7 @@ export const likePost = async (req, res) => {
     if (post.likes_count.includes(userId)) {
       post.likes_count = post.likes_count.filter((user) => user !== userId);
       await post.save();
-      res.jsosn({ success: true, message: "Post unliked" });
+      res.json({ success: true, message: "Post unliked" });
     } else {
       post.likes_count.push(userId);
       await post.save();

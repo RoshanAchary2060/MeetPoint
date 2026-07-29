@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, useLocation } from "react-router-dom";
 import Messages from "./pages/Messages";
 import Login from "./pages/Login";
 import Feed from "./pages/Feed";
@@ -10,18 +10,61 @@ import Profile from "./pages/Profile";
 import CreatePost from "./pages/CreatePost";
 import { useUser, useAuth } from "@clerk/clerk-react";
 import Layout from "./pages/Layout";
-import { Toaster } from "react-hot-toast";
+import toast, { Toaster } from "react-hot-toast";
+import { useDispatch } from "react-redux";
+import { fetchUser } from "./features/user/usersSlice";
+import { fetchConnections } from "./features/connections/connectionsSlice";
+import { useRef } from "react";
+import { addMessages } from "./features/messages/messagesSlice";
+import Notification from "./components/Notification";
 
 const App = () => {
   const { user } = useUser();
   const { getToken } = useAuth();
+  const { pathname } = useLocation();
+  const pathnameRef = useRef(pathname);
+  const dispatch = useDispatch();
+
+  useEffect(() => {
+    const fetchData = async () => {
+      if (user) {
+        const token = await getToken();
+        dispatch(fetchUser(token));
+        dispatch(fetchConnections(token));
+      }
+    };
+    fetchData();
+  }, [user, dispatch, getToken]);
+
+  useEffect(() => {
+    pathnameRef.current = pathname;
+  }, [pathname]);
+
   useEffect(() => {
     if (user) {
-      getToken().then((token) => {
-        console.log('token', token);
-      })
+      const eventSource = new EventSource(
+        import.meta.env.VITE_BASEURL + "/api/message/" + user.id,
+      );
+
+      eventSource.onmessage = (event) => {
+        const message = JSON.parse(event.data);
+
+        if (pathnameRef.current === `/messages/${message.from_user_id._id}`) {
+          dispatch(addMessages(message));
+        } else {
+          // Handle notifications later
+          toast.custom((t) => (
+            <Notification t={t} message={message} />
+          ), {position: 'bottom-right'});
+        }
+      };
+
+      return () => {
+        eventSource.close();
+      };
     }
-  });
+  }, [user, dispatch]);
+
   return (
     <div className="">
       <>
