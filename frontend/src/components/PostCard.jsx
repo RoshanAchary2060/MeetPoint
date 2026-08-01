@@ -88,25 +88,49 @@ const PostCard = ({ post }) => {
     try {
       const { data } = await api.get(`/api/post/share/${postData._id}`);
 
-      if (!data.success) {
-        return toast.error(data.message);
+      if (!data.success || !data.url) {
+        return toast.error(data.message || "Could not generate share link");
       }
 
+      const shareUrl = data.url;
+
+      // 1. Try Native Web Share API (Mobile & HTTPS Desktop)
       if (navigator.share) {
-        await navigator.share({
-          title: "MeetPoint",
-          text: "Check out this post on MeetPoint!",
-          url: data.url,
-        });
-      } else {
-        await navigator.clipboard.writeText(data.url);
-        toast.success("Post link copied to clipboard");
+        try {
+          await navigator.share({
+            title: "MeetPoint",
+            text: "Check out this post on MeetPoint!",
+            url: shareUrl,
+          });
+          return; // Native share opened successfully
+        } catch (shareErr) {
+          // User closed/cancelled the share sheet — suppress error toast
+          if (shareErr.name === "AbortError") return;
+        }
       }
+
+      // 2. Clipboard API (HTTPS Environments)
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(shareUrl);
+        return toast.success("Post link copied to clipboard!");
+      }
+
+      // 3. Document ExecCommand Fallback (Older Browsers / Non-secure context)
+      const textArea = document.createElement("textarea");
+      textArea.value = shareUrl;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textArea);
+
+      toast.success("Post link copied to clipboard!");
+
     } catch (error) {
-      console.log(error);
+      console.error("Share error:", error);
       toast.error("Unable to share post");
     }
   };
+
   const nextImage = () => {
     setSelectedImageIndex((prev) =>
       prev === postData.image_urls.length - 1 ? 0 : prev + 1,

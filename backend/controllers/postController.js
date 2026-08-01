@@ -206,6 +206,7 @@ export const getSinglePost = async (req, res) => {
 };
 
 // SHARE POST
+// postController.js
 export const getShareLink = async (req, res) => {
   try {
     const { postId } = req.params;
@@ -219,9 +220,20 @@ export const getShareLink = async (req, res) => {
       });
     }
 
+    // Standardize URL formatting
+    let baseUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+
+    // Auto-fix if https:// protocol was omitted in env variable
+    if (!baseUrl.startsWith("http://") && !baseUrl.startsWith("https://")) {
+      baseUrl = `https://${baseUrl}`;
+    }
+
+    // Strip trailing slashes if present
+    baseUrl = baseUrl.replace(/\/$/, "");
+
     return res.json({
       success: true,
-      url: `${process.env.FRONTEND_URL}/post/${postId}`,
+      url: `${baseUrl}/post/${postId}`,
     });
   } catch (error) {
     console.log(error);
