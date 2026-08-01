@@ -59,10 +59,10 @@ const CommentModal = ({ post, onClose, setPostData }) => {
       );
 
       if (data.success) {
+        toast.success(data.message);
         setComments((prev) => [data.comment, ...prev]);
         // setCommentsCount((prev) => prev + 1);
         setPostData(data.post);
-        toast.success(data.message);
         setText("");
       } else {
         toast.error(data.message);
