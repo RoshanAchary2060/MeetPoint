@@ -2,9 +2,10 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useUser } from "@clerk/clerk-react";
 import api from "../api/axios";
-import PostCard from "../components/PostCard";
+import PostCard from "../components/PostCard.jsx";
 
 const Post = () => {
+  console.log("Post component rendered");
   const { postId } = useParams();
   const navigate = useNavigate();
   const { user, isLoaded } = useUser();
@@ -14,17 +15,7 @@ const Post = () => {
 
 
 
-  useEffect(() => {
-    if (post?.user?.full_name) {
-      document.title = `${post.user.full_name} • MeetPoint`;
-    } else {
-      document.title = "MeetPoint";
-    }
 
-    return () => {
-      document.title = "MeetPoint";
-    };
-  }, [post]);
 
   const fetchPost = async () => {
     try {
@@ -43,6 +34,18 @@ const Post = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (post?.user?.full_name) {
+      document.title = `${post.user.full_name} • MeetPoint`;
+    } else {
+      document.title = "MeetPoint";
+    }
+
+    return () => {
+      document.title = "MeetPoint";
+    };
+  }, [post]);
 
   useEffect(() => {
     fetchPost();
