@@ -77,6 +77,7 @@ export const updateUserData = async (req, res) => {
 
     // Upload Profile Picture
     if (profileFile) {
+      console.log(profileFile);
       const buffer = fs.readFileSync(profileFile.path);
       const profileUpload = await imagekit.upload({
         file: buffer,
