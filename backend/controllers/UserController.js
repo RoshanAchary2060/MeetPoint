@@ -216,92 +216,61 @@ export const unfollowUser = async (req, res) => {
 // Send Connection  Request
 export const sendConnectionRequest = async (req, res) => {
   try {
-    const { userId } = req.auth();
+    const userId = getUserIdFromReq(req);
     const { id } = req.body;
-    // CHECK IF USER HAS SENT MORE THAN 20 CONNECTION REQUESTS IN THE LAST 24 HOURS
+
     const last24Hours = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const connectionRequests = await Connection.find({
       from_user_id: userId,
       created_at: { $gt: last24Hours },
     });
+
     if (connectionRequests.length >= 20) {
-      return res.json({
-        success: false,
-        message:
-          "You have sent more than 20 connection requests in the last 24 hours",
-      });
+      return res.json({ success: false, message: "Limit reached: 20 requests in 24h" });
     }
-    // CHECK IF USERS ARE ALREADY CONNECTED
+
     const connection = await Connection.findOne({
       $or: [
         { from_user_id: userId, to_user_id: id },
         { from_user_id: id, to_user_id: userId },
       ],
     });
+
     if (!connection) {
-      const newConnection = await Connection.create({
-        from_user_id: userId,
-        to_user_id: id,
-      });
+      const newConnection = await Connection.create({ from_user_id: userId, to_user_id: id });
+      await inngest.send({ name: "app/connection-request", data: { connectionId: newConnection._id } });
 
-      await inngest.send({
-        name: "app/connection-request",
-        data: {
-          connectionId: newConnection._id,
-        },
-      });
+      sendEventToUser(userId, { type: "RELATIONSHIP_UPDATE" });
+      sendEventToUser(id, { type: "RELATIONSHIP_UPDATE" });
 
-      sendEventToUser(userId, {
-        type: "RELATIONSHIP_UPDATE",
-      });
-
-      sendEventToUser(id, {
-        type: "RELATIONSHIP_UPDATE",
-      });
-
-      return res.json({
-        success: true,
-        message: "Connection request sent successfully",
-      });
-    } else if (connection && connection.status === "accepted") {
-      return res.json({
-        success: false,
-        message: "You are already connected with this user",
-      });
+      return res.json({ success: true, message: "Connection request sent successfully" });
+    } else if (connection.status === "accepted") {
+      return res.json({ success: false, message: "Already connected" });
     }
-    return res.json({
-      success: false,
-      message: "Connection request pending",
-    });
+    return res.json({ success: false, message: "Connection request pending" });
   } catch (error) {
-    console.log(error);
+    console.error(error);
     res.json({ success: false, message: error.message });
   }
-};
-
+}
 // GET USER CONNECTIONS
+//
+//
 export const getUserConnections = async (req, res) => {
   try {
-    const { userId } = req.auth();
-    const user = await User.findById(userId).populate(
-      "connections followers following",
-    );
+    const userId = getUserIdFromReq(req);
+    const user = await User.findById(userId).populate("connections followers following");
+
     const connections = user.connections;
     const followers = user.followers;
     const following = user.following;
 
     const pendingConnections = (
-      await Connection.find({
-        to_user_id: userId,
-        status: "pending",
-      }).populate("from_user_id")
+      await Connection.find({ to_user_id: userId, status: "pending" }).populate("from_user_id")
     ).map((connection) => connection.from_user_id);
 
     const sentConnections = (
-      await Connection.find({
-        from_user_id: userId,
-        status: "pending",
-      }).populate("to_user_id")
+      await Connection.find({ from_user_id: userId, status: "pending" }).populate("to_user_id")
     ).map((connection) => connection.to_user_id);
 
     res.json({
@@ -313,68 +282,38 @@ export const getUserConnections = async (req, res) => {
       sentConnections,
     });
   } catch (error) {
-    console.log(error);
+    console.error(error);
     res.json({ success: false, message: error.message });
   }
-};
-
-// ACCEPT CONNECTION REQUEST
+}
 // ACCEPT CONNECTION REQUEST
 export const acceptConnectionRequest = async (req, res) => {
   try {
-    const { userId } = req.auth();
+    const userId = getUserIdFromReq(req);
     const { id } = req.body;
 
-    // Only accept if the request is still pending
     const connection = await Connection.findOneAndUpdate(
-      {
-        from_user_id: id,
-        to_user_id: userId,
-        status: "pending",
-      },
-      {
-        status: "accepted",
-      },
-      {
-        new: true,
-      },
+      { from_user_id: id, to_user_id: userId, status: "pending" },
+      { status: "accepted" },
+      { new: true }
     );
 
     if (!connection) {
-      return res.json({
-        success: false,
-        message: "Connection already accepted or not found",
-      });
+      return res.json({ success: false, message: "Request not found or already accepted" });
     }
 
-    // Add users to each other's connections without duplicates
-    await User.findByIdAndUpdate(userId, {
-      $addToSet: {
-        connections: id,
-      },
-    });
+    await User.findByIdAndUpdate(userId, { $addToSet: { connections: id } });
+    await User.findByIdAndUpdate(id, { $addToSet: { connections: userId } });
 
-    await User.findByIdAndUpdate(id, {
-      $addToSet: {
-        connections: userId,
-      },
-    });
     sendEventToUser(userId, { type: "RELATIONSHIP_UPDATE" });
     sendEventToUser(id, { type: "RELATIONSHIP_UPDATE" });
-    return res.json({
-      success: true,
-      message: "Connection accepted successfully",
-    });
-  } catch (error) {
-    console.log(error);
 
-    return res.json({
-      success: false,
-      message: error.message,
-    });
+    res.json({ success: true, message: "Connection accepted successfully" });
+  } catch (error) {
+    console.error(error);
+    res.json({ success: false, message: error.message });
   }
 };
-
 // GET USER PROFILES
 export const getUserProfiles = async (req, res) => {
   try {
@@ -406,25 +345,23 @@ export const declineConnectionRequest = async (req, res) => {
     });
 
     if (!connection) {
-      return res.json({
-        success: false,
-        message: "Connection request not found",
-      });
+      return res.json({ success: false, message: "Connection request not found" });
     }
+
     sendEventToUser(userId, { type: "RELATIONSHIP_UPDATE" });
     sendEventToUser(id, { type: "RELATIONSHIP_UPDATE" });
+
     res.json({ success: true, message: "Connection request declined" });
   } catch (error) {
-    console.log(error);
+    console.error(error);
     res.json({ success: false, message: error.message });
   }
 };
-
 // CANCEL SENT CONNECTION REQUEST
 export const cancelConnectionRequest = async (req, res) => {
   try {
     const userId = getUserIdFromReq(req);
-    const { userId: targetId } = req.body; // frontend sends { userId }
+    const { userId: targetId } = req.body;
 
     const connection = await Connection.findOneAndDelete({
       from_user_id: userId,
@@ -433,56 +370,48 @@ export const cancelConnectionRequest = async (req, res) => {
     });
 
     if (!connection) {
-      return res.json({
-        success: false,
-        message: "Connection request not found",
-      });
+      return res.json({ success: false, message: "Connection request not found" });
     }
+
     sendEventToUser(userId, { type: "RELATIONSHIP_UPDATE" });
-    sendEventToUser(targetId, { type: "RELATIONSHIP_UPDATE" }); // whatever variable you used
+    sendEventToUser(targetId, { type: "RELATIONSHIP_UPDATE" });
+
     res.json({ success: true, message: "Connection request cancelled" });
   } catch (error) {
-    console.log(error);
+    console.error(error);
     res.json({ success: false, message: error.message });
   }
-};
-
+}
 // DISCONNECT (Remove mutual connection)
 export const disconnectUser = async (req, res) => {
   try {
     const userId = getUserIdFromReq(req);
-    const { userId: targetId } = req.body; // frontend sends { userId }
+    const { userId: targetId } = req.body;
 
-    // Remove from both users' connections arrays
-    await User.findByIdAndUpdate(userId, {
-      $pull: { connections: targetId },
-    });
-    await User.findByIdAndUpdate(targetId, {
-      $pull: { connections: userId },
-    });
+    await User.findByIdAndUpdate(userId, { $pull: { connections: targetId } });
+    await User.findByIdAndUpdate(targetId, { $pull: { connections: userId } });
 
-    // Also delete the Connection document
     await Connection.findOneAndDelete({
       $or: [
         { from_user_id: userId, to_user_id: targetId },
         { from_user_id: targetId, to_user_id: userId },
       ],
     });
+
     await Message.deleteMany({
       $or: [
         { from_user_id: userId, to_user_id: targetId },
         { from_user_id: targetId, to_user_id: userId },
       ],
     });
+
     sendEventToUser(userId, { type: "RELATIONSHIP_UPDATE" });
     sendEventToUser(targetId, { type: "RELATIONSHIP_UPDATE" });
-    sendEventToUser(targetId, {
-      type: "DISCONNECTED_BY_USER",
-      withUserId: userId,
-    });
+    sendEventToUser(targetId, { type: "DISCONNECTED_BY_USER", withUserId: userId });
+
     res.json({ success: true, message: "Disconnected successfully" });
   } catch (error) {
-    console.log(error);
+    console.error(error);
     res.json({ success: false, message: error.message });
   }
 };
