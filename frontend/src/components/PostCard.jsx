@@ -85,45 +85,20 @@ const PostCard = ({ post }) => {
   };
 
   // In PostCard.jsx - Replace the handleShare function
+
   const handleShare = async () => {
     try {
-      // Use the post ID directly - no backend call needed!
-      const shareUrl = `https://meetpointapp.vercel.app/post/${postData._id}`;
+      const shareUrl = `${window.location.origin}/post/${postData._id}`;
 
-      // 1. Try Native Web Share API
-      if (navigator.share) {
-        try {
-          await navigator.share({
-            title: `${postData.user.full_name} on MeetPoint`,
-            text: postData.content || "Check out this post on MeetPoint!",
-            url: shareUrl,
-          });
-          return;
-        } catch (shareErr) {
-          if (shareErr.name === "AbortError") return;
-        }
-      }
-
-      // 2. Clipboard API
-      if (navigator.clipboard && window.isSecureContext) {
-        await navigator.clipboard.writeText(shareUrl);
-        return toast.success("Post link copied to clipboard!");
-      }
-
-      // 3. Fallback
-      const textArea = document.createElement("textarea");
-      textArea.value = shareUrl;
-      document.body.appendChild(textArea);
-      textArea.select();
-      document.execCommand("copy");
-      document.body.removeChild(textArea);
+      await navigator.clipboard.writeText(shareUrl);
 
       toast.success("Post link copied to clipboard!");
     } catch (error) {
-      console.error("Share error:", error);
+      console.error(error);
       toast.error("Unable to share post");
     }
   };
+
   const nextImage = () => {
     setSelectedImageIndex((prev) =>
       prev === postData.image_urls.length - 1 ? 0 : prev + 1,
