@@ -32,7 +32,11 @@ export const getUserData = async (req, res) => {
 };
 
 // UPDATE USER DATA USING USERID
+// UPDATE USER DATA USING USERID
 export const updateUserData = async (req, res) => {
+  const profileFile = req.files?.profile?.[0];
+  const coverFile = req.files?.cover?.[0];
+
   try {
     const userId = getUserIdFromReq(req);
 
@@ -55,12 +59,11 @@ export const updateUserData = async (req, res) => {
 
     const updatedData = {};
 
-    // 1. Update text fields if provided in req.body
     if (full_name !== undefined) updatedData.full_name = full_name;
     if (bio !== undefined) updatedData.bio = bio;
     if (location !== undefined) updatedData.location = location;
 
-    // 2. Validate and update username
+    // Check username availability if changed
     if (username && username !== currentUser.username) {
       const existingUser = await User.findOne({ username });
       if (existingUser) {
@@ -72,61 +75,65 @@ export const updateUserData = async (req, res) => {
       updatedData.username = username;
     }
 
-    // 3. Process optional profile & cover files safely
-    const profile = req.files?.profile?.[0];
-    const cover = req.files?.cover?.[0];
-
-    if (profile) {
-      const buffer = fs.readFileSync(profile.path);
-      const response = await imagekit.upload({
+    // Upload Profile Picture
+    if (profileFile) {
+      const buffer = fs.readFileSync(profileFile.path);
+      const profileUpload = await imagekit.upload({
         file: buffer,
-        fileName: profile.originalname,
+        fileName: profileFile.originalname,
       });
-      const url = imagekit.url({
-        path: response.filePath,
+
+      updatedData.profile_picture = imagekit.url({
+        path: profileUpload.filePath,
         transformation: [
           { quality: "auto" },
           { format: "webp" },
           { width: "512" },
         ],
       });
-      updatedData.profile_picture = url;
     }
 
-    if (cover) {
-      const buffer = fs.readFileSync(cover.path);
-      const response = await imagekit.upload({
+    // Upload Cover Photo
+    if (coverFile) {
+      const buffer = fs.readFileSync(coverFile.path);
+      const coverUpload = await imagekit.upload({
         file: buffer,
-        fileName: cover.originalname,
+        fileName: coverFile.originalname,
       });
-      const url = imagekit.url({
-        path: response.filePath,
+
+      updatedData.cover_photo = imagekit.url({
+        path: coverUpload.filePath,
         transformation: [
           { quality: "auto" },
           { format: "webp" },
           { width: "1280" },
         ],
       });
-      updatedData.cover_photo = url;
     }
 
-    // 4. Save updated user
     const updatedUser = await User.findByIdAndUpdate(userId, updatedData, {
       new: true,
       runValidators: true,
     });
 
-    res.json({
+    return res.json({
       success: true,
       user: updatedUser,
       message: "Profile updated successfully",
     });
   } catch (error) {
-    console.log(error);
-    res.json({ success: false, message: error.message });
+    console.error(error);
+    return res.json({ success: false, message: error.message });
+  } finally {
+    // ALWAYS clean up temporary uploaded files from the disk
+    if (profileFile && fs.existsSync(profileFile.path)) {
+      fs.unlinkSync(profileFile.path);
+    }
+    if (coverFile && fs.existsSync(coverFile.path)) {
+      fs.unlinkSync(coverFile.path);
+    }
   }
 };
-
 // FIND USERS USING USERNAME, EMAIL, LOCATION, NAME
 export const discoverUsers = async (req, res) => {
   try {
