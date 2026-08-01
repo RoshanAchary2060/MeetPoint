@@ -10,9 +10,12 @@ import ActiveCall from "./ActiveCall";
 import { useCall } from "../context/callContext.jsx";
 import { fetchConnections } from "../features/connections/connectionsSlice.js";
 import { fetchUser } from "../features/user/usersSlice.js";
+import { useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
 
 const CallManager = ({ children }) => {
   const dispatch = useDispatch();
+  const navigate = useNavigate()
   const { getToken } = useAuth();
   const sseEvent = useSelector((state) => state.sse.event);
   const {
@@ -64,6 +67,29 @@ const CallManager = ({ children }) => {
           dispatch(fetchConnections(token));
           dispatch(fetchUser(token));
 
+          break;
+        }
+
+        case "CONNECTION_REQUEST_RECEIVED": {
+          // Show toast with button
+          toast.info(
+            <div>
+              <p>
+                <b>{sseEvent.fromUser.full_name}</b> sent you a connection
+                request
+              </p>
+              <button
+                onClick={() => {
+                  navigate("/connections", { state: { tab: "Received" } });
+                  toast.dismiss(); // close toast after navigation
+                }}
+                className="mt-2 px-3 py-1 rounded bg-indigo-600 text-white hover:bg-indigo-700"
+              >
+                View
+              </button>
+            </div>,
+            { autoClose: false }, // keep toast until user acts
+          );
           break;
         }
 
