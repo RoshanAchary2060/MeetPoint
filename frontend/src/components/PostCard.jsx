@@ -86,7 +86,7 @@ const PostCard = ({ post }) => {
 
   const handleShare = async () => {
     try {
-      const { data } = await api.get(`/api/post/share/${postData._id}`);
+      const { data } = await api.get(`https://www.meetpointapp.vercel.app/api/post/share/${postData._id}`);
 
       if (!data.success) {
         return toast.error(data.message);
