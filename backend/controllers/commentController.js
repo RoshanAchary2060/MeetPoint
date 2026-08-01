@@ -35,6 +35,7 @@ export const addComment = async (req, res) => {
     return res.json({
       success: true,
       comment: populatedComment,
+      message: 'Comment added'
       post: updatedPost,
     });
   } catch (error) {
