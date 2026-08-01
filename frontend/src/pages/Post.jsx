@@ -12,9 +12,7 @@ const Post = () => {
   const [post, setPost] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchPost();
-  }, [postId]);
+
 
   useEffect(() => {
     if (post?.user?.full_name) {
@@ -45,6 +43,10 @@ const Post = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchPost();
+  }, [postId]);
 
   if (loading || !isLoaded) {
     return (
