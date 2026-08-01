@@ -2,33 +2,11 @@ import fs from "fs";
 // import imageKit from "../configs/imageKit.js";
 import imagekit from "../configs/imageKit.js";
 import Message from "../models/Message.js";
-
-// CREATE AN EMPTY OBJECT TO STORE SERVER SIDE EVENT CONNECTIONS
-const connections = {};
-
-// CONTROLLER FUNCTION FOR THE SERVER SIDE EVENT ENDPOINT
-export const sseController = (req, res) => {
-  const { userId } = req.params;
-  console.log("New client connected:", userId);
-
-  // SET SSE HEADERS
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
-  res.setHeader("Connection", "keep-alive");
-  res.setHeader("Access-Control-Allow-Origin", "*");
-
-  // ADD THE CLIENT RESPONSE OBJECT TO THE CONNECTIONS OBJECT
-  connections[userId] = res;
-  // SEND AN INITIAL EVENT TO THE CLIENT
-  res.write("log: Connected to SSE stream\n\n");
-
-  // HANDLE CLIENT DISCONNECTION
-  req.on("close", () => {
-    // REMOVE THE CLIENT RESPONSE OBJECT FROM THE CONNECTIONS ARRAY
-    delete connections[userId];
-    console.log("Client disconnected:", userId);
-  });
-};
+import {
+  addConnection,
+  removeConnection,
+  sendEventToUser,
+} from "../utils/sse.js";
 
 // SEND MESSAGE
 export const sendMessage = async (req, res) => {
@@ -66,16 +44,17 @@ export const sendMessage = async (req, res) => {
 
     res.json({ success: true, message });
 
+
+
     // SEND THE MESSAGE TO THE CLIENT USING SSE
     const messageWithUserData = await Message.findById(message._id).populate(
       "from_user_id",
     );
 
-    if (connections[to_user_id]) {
-      connections[to_user_id].write(
-        `data: ${JSON.stringify(messageWithUserData)}\n\n`,
-      );
-    }
+    sendEventToUser(to_user_id, {
+      type: "NEW_MESSAGE",
+      data: messageWithUserData,
+    });
   } catch (error) {
     console.log(error);
     res.json({ success: false, message: error.message });

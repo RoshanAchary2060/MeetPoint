@@ -11,14 +11,20 @@ import userRouter from "./routes/userRoutes.js";
 import postRouter from "./routes/postRoutes.js";
 import storyRouter from "./routes/storyRoutes.js";
 import messageRouter from "./routes/messageRoutes.js";
+import commentRouter from "./routes/commentRoutes.js";
+import callRoutes from "./routes/callRoutes.js";
 
 const app = express();
 
 await connectDB();
 
 app.use(express.json());
-app.use(cors());
-app.use(clerkMiddleware());
+app.use(
+  cors({
+    origin: "http://localhost:5173",
+    credentials: true,
+  })
+);app.use(clerkMiddleware());
 
 app.get("/", (req, resp) => resp.send("Server is running"));
 app.get("/test", async (req, res) => {
@@ -38,7 +44,10 @@ app.use("/api/user", userRouter);
 app.use("/api/post", postRouter);
 app.use("/api/story", storyRouter);
 app.use("/api/message", messageRouter);
+app.use("/api/comment", commentRouter);
+
+app.use("/api/call", callRoutes);
 
 const PORT = process.env.PORT || 4000;
 
-app.listen(PORT, () => console.log("Server is running on port ", PORT));
+app.listen(PORT, () => console.log("Server is running on port", PORT));

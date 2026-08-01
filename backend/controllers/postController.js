@@ -2,13 +2,15 @@ import fs from "fs";
 import imagekit from "../configs/imageKit.js";
 import Post from "../models/Post.js";
 import User from "../models/User.js";
+import Comment from "../models/Comment.js";
+import { sendEventToUser } from "../utils/sse.js";
 
 //  ADD POST
 export const addPost = async (req, res) => {
   try {
     const { userId } = req.auth();
     const { content, post_type } = req.body;
-    const images = req.files;
+    const images = req.files || [];
     let image_urls = [];
     if (images.length) {
       image_urls = await Promise.all(
@@ -31,13 +33,26 @@ export const addPost = async (req, res) => {
         }),
       );
     }
-    await Post.create({
+    const post = await Post.create({
       user: userId,
       content,
       image_urls,
       post_type,
     });
-    res.json({ success: true, message: "Post created successfully" });
+
+    // Populate user before sending
+    const populatedPost = await Post.findById(post._id).populate("user");
+
+    sendEventToAll({
+      type: "POST_CREATED",
+      data: populatedPost,
+      senderId: userId,
+    });
+
+    res.json({
+      success: true,
+      message: "Post created successfully",
+    });
   } catch (error) {
     console.log(error);
     res.json({ success: false, message: error.message });
@@ -67,17 +82,68 @@ export const likePost = async (req, res) => {
     const { userId } = req.auth();
     const { postId } = req.body;
     const post = await Post.findById(postId);
-    if (post.likes_count.includes(userId)) {
-      post.likes_count = post.likes_count.filter((user) => user !== userId);
+    if (post.likes.includes(userId)) {
+      post.likes = post.likes.filter((user) => user !== userId);
       await post.save();
       res.json({ success: true, message: "Post unliked" });
     } else {
-      post.likes_count.push(userId);
+      post.likes.push(userId);
       await post.save();
       res.json({ success: true, message: "Post liked" });
     }
   } catch (error) {
     console.log(error);
     res.json({ success: false, message: error.message });
+  }
+};
+
+// DELETE POST
+export const deletePost = async (req, res) => {
+  try {
+    const { userId } = req.auth();
+    const { postId } = req.params;
+
+    const post = await Post.findById(postId);
+
+    if (!post) {
+      return res.json({
+        success: false,
+        message: "Post not found",
+      });
+    }
+
+    // Check ownership
+    if (post.user !== userId) {
+      return res.json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    await Post.findByIdAndDelete(postId);
+
+    sendEventToAll({
+      type: "POST_DELETED",
+      data: {
+        postId,
+      },
+    });
+
+    // Optional: delete all comments of this post
+    await Comment.deleteMany({
+      post_id: postId,
+    });
+
+    return res.json({
+      success: true,
+      message: "Post deleted successfully",
+    });
+  } catch (error) {
+    console.log(error);
+
+    res.json({
+      success: false,
+      message: error.message,
+    });
   }
 };

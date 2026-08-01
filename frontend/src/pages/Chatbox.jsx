@@ -10,6 +10,7 @@ import {
   resetMessages,
 } from "../features/messages/messagesSlice";
 import toast from "react-hot-toast";
+import { useCall } from "../context/CallContext";
 
 const Chatbox = () => {
   const { messages } = useSelector((state) => state.messages);
@@ -22,6 +23,7 @@ const Chatbox = () => {
   const [user, setUser] = useState(null);
 
   const messagesEndRef = useRef(null);
+  const { setCallState, setRemoteUser } = useCall();
 
   const connections = useSelector((state) => state.connections.connections);
 
@@ -59,7 +61,7 @@ const Chatbox = () => {
       }
     } catch (error) {
       console.error("FULL ERROR:", error);
-       console.error("STACK:", error.stack);
+      console.error("STACK:", error.stack);
       toast.error(error.message);
     }
   };
@@ -82,23 +84,118 @@ const Chatbox = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  const startAudioCall = async () => {
+    console.log("startAudioCall", userId);
+    try {
+      const token = await getToken();
+
+      setRemoteUser({
+        id: user._id,
+        username: user.username,
+        full_name: user.full_name,
+        profile_picture: user.profile_picture,
+      });
+
+      setCallState("calling");
+
+      await api.post(
+        "/api/call/audio",
+        { to_user_id: userId },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+    } catch (error) {
+      toast.error(error.message || "Failed to start call");
+    }
+  };
+
   return (
     user && (
       <div className="flex flex-col h-screen">
-        <div
+        {/* <div
           className="flex items-center gap-2 p-2 md:px-10 xl:pl-42
      bg-gradient-to-r from-indigo-50 border-b border-gray-300"
         >
           <img src={user.profile_picture} className="size-8 rounded-full" />
           <div className="">
-            <p className="font=medium">{user.full_name}</p>
+            <p className="font-medium">{user.full_name}</p>
             <p className="text-sm text-gray-500 -mt-1.5">@{user.username}</p>
           </div>
+        </div>*/}
+
+        <div className="flex items-center justify-between gap-2 p-2 md:px-10 xl:pl-42 bg-gradient-to-r from-indigo-50 border-b border-gray-300">
+          {/* Left side - User info */}
+          <div className="flex items-center gap-2">
+            <img
+              src={user.profile_picture}
+              className="size-8 rounded-full"
+              alt=""
+            />
+            <div>
+              <p className="font-medium">{user.full_name}</p>
+              <p className="text-sm text-gray-500 -mt-1.5">@{user.username}</p>
+            </div>
+          </div>
+
+          {/* Right side - Call buttons */}
+          <div className="flex items-center gap-3">
+            {/* Audio Call Button */}
+            <button
+              onClick={startAudioCall}
+              className="p-2 rounded-full hover:bg-indigo-100 transition"
+              title="Audio Call"
+            >
+              {/* same svg you already have */}
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="w-5 h-5 text-indigo-600"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
+                />
+              </svg>
+            </button>
+
+            {/* Video Call Button */}
+            <button
+              onClick={() => console.log("Video call clicked")}
+              className="p-2 rounded-full hover:bg-indigo-100 transition"
+              title="Video Call"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="w-5 h-5 text-indigo-600"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                />
+              </svg>
+            </button>
+          </div>
         </div>
+
         <div className="p-5 md:px-10 h-full overflow-y-scroll">
           <div className="space-y-4 max-w-4xl mx-auto">
             {messages
-              ?.toSorted((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+              ?.toSorted(
+                (a, b) => new Date(a.createdAt) - new Date(b.createdAt),
+              )
               .map((message, index) => (
                 <div
                   key={index}

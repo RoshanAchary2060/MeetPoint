@@ -1,6 +1,9 @@
 import express from "express";
 import {
   acceptConnectionRequest,
+  cancelConnectionRequest,
+  declineConnectionRequest,
+  disconnectUser,
   discoverUsers,
   followUser,
   getUserConnections,
@@ -42,5 +45,9 @@ userRouter.get("/connections", protect, getUserConnections);
 userRouter.post("/profiles", getUserProfiles);
 
 userRouter.get("/recent-messages", protect, getUserRecentMessages);
+
+userRouter.post("/decline", protect, declineConnectionRequest);
+userRouter.post("/cancel-request", protect, cancelConnectionRequest);
+userRouter.post("/disconnect", protect, disconnectUser);
 
 export default userRouter;

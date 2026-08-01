@@ -4,6 +4,7 @@ import api from "../../api/axios";
 const initialState = {
   connections: [],
   pendingConnections: [],
+  sentConnections: [],
   followers: [],
   following: [],
 };
@@ -29,6 +30,7 @@ const connectionsSlice = createSlice({
       if (action.payload) {
         state.connections = action.payload.connections;
         state.pendingConnections = action.payload.pendingConnections;
+        state.sentConnections = action.payload.sentConnections;
         state.followers = action.payload.followers;
         state.following = action.payload.following;
       }

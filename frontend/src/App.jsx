@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Routes, Route, useLocation } from "react-router-dom";
 import Messages from "./pages/Messages";
 import Login from "./pages/Login";
@@ -8,23 +8,30 @@ import Connections from "./pages/Connections";
 import Discover from "./pages/Discover";
 import Profile from "./pages/Profile";
 import CreatePost from "./pages/CreatePost";
-import { useUser, useAuth } from "@clerk/clerk-react";
 import Layout from "./pages/Layout";
-import toast, { Toaster } from "react-hot-toast";
+import CallManager from "./components/CallManager";
+
+import { useUser, useAuth } from "@clerk/clerk-react";
+import { Toaster } from "react-hot-toast";
 import { useDispatch } from "react-redux";
 import { fetchUser } from "./features/user/usersSlice";
 import { fetchConnections } from "./features/connections/connectionsSlice";
-import { useRef } from "react";
+import { setSSEEvent } from "./features/sse/sseSlice"; // Import Redux action
 import { addMessages } from "./features/messages/messagesSlice";
-import Notification from "./components/Notification";
 
 const App = () => {
   const { user } = useUser();
   const { getToken } = useAuth();
-  const { pathname } = useLocation();
-  const pathnameRef = useRef(pathname);
   const dispatch = useDispatch();
+  const location = useLocation();
 
+  const pathnameRef = useRef(location.pathname);
+
+  useEffect(() => {
+    pathnameRef.current = location.pathname;
+  }, [location.pathname]);
+
+  // Fetch initial user and connections data
   useEffect(() => {
     const fetchData = async () => {
       if (user) {
@@ -36,53 +43,62 @@ const App = () => {
     fetchData();
   }, [user, dispatch, getToken]);
 
+  // Single Consolidated Global SSE Listener
   useEffect(() => {
-    pathnameRef.current = pathname;
-  }, [pathname]);
+    if (!user) return;
 
-  useEffect(() => {
-    if (user) {
-      const eventSource = new EventSource(
-        import.meta.env.VITE_BASEURL + "/api/message/" + user.id,
+    const sseUrl = `${import.meta.env.VITE_BASEURL}/api/message/sse/${user.id}`;
+    const eventSource = new EventSource(sseUrl);
+
+    eventSource.onmessage = (event) => {
+      console.log(
+        "SSE CALLBACK FIRED",
+        performance.now(),
+        document.visibilityState,
       );
 
-      eventSource.onmessage = (event) => {
-        const message = JSON.parse(event.data);
+      try {
+        const data = JSON.parse(event.data);
+        console.log("⚡ SSE Event Received:", data);
+        console.log("EVENT TYPE", data.type);
 
-        if (pathnameRef.current === `/messages/${message.from_user_id._id}`) {
-          dispatch(addMessages(message));
-        } else {
-          // Handle notifications later
-          toast.custom((t) => (
-            <Notification t={t} message={message} />
-          ), {position: 'bottom-right'});
+        // 1. Dispatch event to Redux so CallManager catches call signals
+        dispatch(setSSEEvent(data));
+
+        // 2. Dispatch real-time chat messages to Redux store
+        if (data.type === "NEW_MESSAGE") {
+          dispatch(addMessages(data.message));
         }
-      };
+      } catch (err) {
+        console.error("Error parsing SSE data:", err);
+      }
+    };
 
-      return () => {
-        eventSource.close();
-      };
-    }
+    eventSource.onerror = (err) => {
+      console.error("SSE Connection error:", err);
+    };
+
+    return () => {
+      eventSource.close();
+    };
   }, [user, dispatch]);
 
   return (
-    <div className="">
-      <>
-        <Toaster />
-        <Routes>
-          <Route path="/" element={!user ? <Login /> : <Layout />}>
-            <Route index element={<Feed />} />
-            <Route path="/messages" element={<Messages />} />
-            <Route path="/messages/:userId" element={<Chatbox />} />
-            <Route path="/connections" element={<Connections />} />
-            <Route path="/discover" element={<Discover />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/profile/:profileId" element={<Profile />} />
-            <Route path="/create-post" element={<CreatePost />} />
-          </Route>
-        </Routes>
-      </>
-    </div>
+    <CallManager>
+      <Toaster />
+      <Routes>
+        <Route path="/" element={!user ? <Login /> : <Layout />}>
+          <Route index element={<Feed />} />
+          <Route path="/messages" element={<Messages />} />
+          <Route path="/messages/:userId" element={<Chatbox />} />
+          <Route path="/connections" element={<Connections />} />
+          <Route path="/discover" element={<Discover />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/profile/:profileId" element={<Profile />} />
+          <Route path="/create-post" element={<CreatePost />} />
+        </Route>
+      </Routes>
+    </CallManager>
   );
 };
 
