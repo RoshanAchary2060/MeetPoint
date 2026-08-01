@@ -78,7 +78,8 @@ export const updateUserData = async (req, res) => {
     // Upload Profile Picture
     if (profileFile) {
       console.log(profileFile);
-      const buffer = fs.readFileSync(profileFile.path);
+      // const buffer = fs.readFileSync(profileFile.path);
+      const buffer = profileFile.buffer;
       const profileUpload = await imagekit.upload({
         file: buffer,
         fileName: profileFile.originalname,
@@ -96,7 +97,8 @@ export const updateUserData = async (req, res) => {
 
     // Upload Cover Photo
     if (coverFile) {
-      const buffer = fs.readFileSync(coverFile.path);
+      // const buffer = fs.readFileSync(coverFile.path);
+      const buffer = coverFile.buffer;
       const coverUpload = await imagekit.upload({
         file: buffer,
         fileName: coverFile.originalname,
@@ -125,14 +127,6 @@ export const updateUserData = async (req, res) => {
   } catch (error) {
     console.error(error);
     return res.json({ success: false, message: error.message });
-  } finally {
-    // ALWAYS clean up temporary uploaded files from the disk
-    if (profileFile && fs.existsSync(profileFile.path)) {
-      fs.unlinkSync(profileFile.path);
-    }
-    if (coverFile && fs.existsSync(coverFile.path)) {
-      fs.unlinkSync(coverFile.path);
-    }
   }
 };
 // FIND USERS USING USERNAME, EMAIL, LOCATION, NAME
