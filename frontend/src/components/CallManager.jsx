@@ -71,21 +71,17 @@ const CallManager = ({ children }) => {
         }
 
         case "CONNECTION_REQUEST_RECEIVED": {
-          // If you used JSON.stringify
-          const fromUser =
-            typeof sseEvent.fromUser === "string"
-              ? JSON.parse(sseEvent.fromUser)
-              : sseEvent.fromUser;
-
           toast(
             <div>
               <p>
-                <b>{fromUser.full_name || fromUser?.full_name || "Someone"}</b>{" "}
-                sent you a connection request.
+                <b>{sseEvent.fromUser.full_name}</b> sent you a connection
+                request.
               </p>
               <button
                 onClick={() => {
-                  navigate("/connections");
+                  navigate("/connections", {
+                    state: { activeTab: "Received" }, // ← ADD THIS
+                  });
                   toast.dismiss();
                 }}
                 className="mt-2 px-3 py-1 rounded bg-indigo-600 text-white"
@@ -99,6 +95,7 @@ const CallManager = ({ children }) => {
           );
           break;
         }
+
         case "INCOMING_AUDIO_CALL": {
           setRemoteUser(sseEvent.caller);
           setCallState("incoming");
