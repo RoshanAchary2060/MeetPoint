@@ -15,7 +15,7 @@ import toast from "react-hot-toast";
 
 const CallManager = ({ children }) => {
   const dispatch = useDispatch();
-  const navigate = useNavigate()
+  const navigate = useNavigate();
   const { getToken } = useAuth();
   const sseEvent = useSelector((state) => state.sse.event);
   const {
@@ -71,28 +71,30 @@ const CallManager = ({ children }) => {
         }
 
         case "CONNECTION_REQUEST_RECEIVED": {
-          // Show toast with button
-          toast.info(
+          toast(
             <div>
               <p>
                 <b>{sseEvent.fromUser.full_name}</b> sent you a connection
-                request
+                request.
               </p>
+
               <button
                 onClick={() => {
-                  navigate("/connections", { state: { tab: "Received" } });
-                  toast.dismiss(); // close toast after navigation
+                  navigate("/connections");
+                  toast.dismiss();
                 }}
-                className="mt-2 px-3 py-1 rounded bg-indigo-600 text-white hover:bg-indigo-700"
+                className="mt-2 px-3 py-1 rounded bg-indigo-600 text-white"
               >
                 View
               </button>
             </div>,
-            { autoClose: false }, // keep toast until user acts
+            {
+              duration: Infinity,
+            },
           );
+
           break;
         }
-
         case "INCOMING_AUDIO_CALL": {
           setRemoteUser(sseEvent.caller);
           setCallState("incoming");

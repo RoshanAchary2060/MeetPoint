@@ -237,38 +237,28 @@ export const sendConnectionRequest = async (req, res) => {
     });
 
     if (!connection) {
-      const newConnection = await Connection.create({
-        from_user_id: userId,
-        to_user_id: id,
-      });
+      const newConnection = await Connection.create({ from_user_id: userId, to_user_id: id });
+      await inngest.send({ name: "app/connection-request", data: { connectionId: newConnection._id } });
 
-      await inngest.send({
-        name: "app/connection-request",
-        data: { connectionId: newConnection._id },
-      });
-
-      // Fetch sender info to include in SSE payload
-      const fromUser = await User.findById(userId).select("full_name username profile_picture");
-
-      // Notify both sides
       sendEventToUser(userId, { type: "RELATIONSHIP_UPDATE" });
       sendEventToUser(id, { type: "RELATIONSHIP_UPDATE" });
+      const sender = await User.findById(userId)
+        .select("_id full_name username profile_picture");
+
       sendEventToUser(id, {
         type: "CONNECTION_REQUEST_RECEIVED",
-        fromUser,
+        fromUser: sender,
       });
-
       return res.json({ success: true, message: "Connection request sent successfully" });
     } else if (connection.status === "accepted") {
       return res.json({ success: false, message: "Already connected" });
     }
-
     return res.json({ success: false, message: "Connection request pending" });
   } catch (error) {
     console.error(error);
     res.json({ success: false, message: error.message });
   }
-};
+}
 // GET USER CONNECTIONS
 //
 //
