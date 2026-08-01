@@ -19,12 +19,7 @@ const app = express();
 await connectDB();
 
 app.use(express.json());
-app.use(
-  cors({
-    origin: ["http://localhost:5173", "https://meetpointapp.vercel.app"],
-    credentials: true,
-  }),
-);
+app.use(cors());
 app.use(clerkMiddleware());
 
 app.get("/", (req, resp) => resp.send("Server is running"));
