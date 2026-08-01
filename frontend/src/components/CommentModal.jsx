@@ -59,19 +59,21 @@ const CommentModal = ({ post, onClose, setPostData }) => {
       );
 
       if (data.success) {
-        toast.success(data.message);
+        toast.success(data.message || "Comment added successfully!"); // ← FIXED: Fallback message
         setComments((prev) => [data.comment, ...prev]);
-        // setCommentsCount((prev) => prev + 1);
         setPostData(data.post);
         setText("");
       } else {
-        toast.error(data.message);
+        toast.error(data.message || "Failed to add comment");
       }
     } catch (error) {
-      toast.error(error.message);
+      toast.error(
+        error.response?.data?.message ||
+          error.message ||
+          "Something went wrong",
+      );
     }
   };
-
   const deleteComment = async (commentId) => {
     try {
       const token = await getToken();
@@ -86,19 +88,15 @@ const CommentModal = ({ post, onClose, setPostData }) => {
         setComments((prev) =>
           prev.filter((comment) => comment._id !== commentId),
         );
-
-        // setCommentsCount((prev) => prev - 1);
         setPostData(data.post);
-
-        toast.success("Comment deleted");
+        toast.success(data.message || "Comment deleted successfully"); // ← FIXED
       } else {
-        toast.error(data.message);
+        toast.error(data.message || "Failed to delete comment");
       }
     } catch (error) {
-      toast.error(error.message);
+      toast.error(error.response?.data?.message || error.message || "Something went wrong");
     }
   };
-
   useEffect(() => {
     inputRef.current?.focus();
     fetchComments();

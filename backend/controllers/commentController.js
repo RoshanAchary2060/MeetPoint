@@ -4,6 +4,9 @@ import Post from "../models/Post.js";
 // =========================
 // ADD COMMENT
 // =========================
+// =========================
+// ADD COMMENT
+// =========================
 export const addComment = async (req, res) => {
   try {
     const { userId } = req.auth();
@@ -35,7 +38,7 @@ export const addComment = async (req, res) => {
     return res.json({
       success: true,
       comment: populatedComment,
-      message: 'Comment added',
+      message: "Comment added successfully", // ← FIXED: Proper message
       post: updatedPost,
     });
   } catch (error) {
@@ -47,7 +50,6 @@ export const addComment = async (req, res) => {
     });
   }
 };
-
 // =========================
 // GET COMMENTS
 // =========================
