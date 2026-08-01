@@ -4,7 +4,9 @@ import {
   addPost,
   deletePost,
   getFeedPosts,
+  getSinglePost,
   likePost,
+  sharePost,
 } from "../controllers/postController.js";
 import { upload } from "../configs/multer.js";
 const postRouter = express.Router();
@@ -16,5 +18,9 @@ postRouter.get("/feed", protect, getFeedPosts);
 postRouter.post("/like", protect, likePost);
 
 postRouter.delete("/:postId", protect, deletePost);
+
+postRouter.get("/share/:postId", sharePost);
+
+postRouter.get("/:postId", getSinglePost);
 
 export default postRouter;

@@ -148,3 +148,59 @@ export const deletePost = async (req, res) => {
     });
   }
 };
+
+// SHARE POST
+export const sharePost = async (req, res) => {
+  try {
+    const { postId } = req.params;
+
+    const post = await Post.findById(postId).populate("user");
+
+    if (!post) {
+      return res.json({
+        success: false,
+        message: "Post not found",
+      });
+    }
+
+    res.json({
+      success: true,
+      shareUrl: `${process.env.FRONTEND_URL}/post/${postId}`,
+    });
+  } catch (error) {
+    console.log(error);
+
+    res.json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// GET SINGLE POST
+export const getSinglePost = async (req, res) => {
+  try {
+    const { postId } = req.params;
+
+    const post = await Post.findById(postId).populate("user");
+
+    if (!post) {
+      return res.json({
+        success: false,
+        message: "Post not found",
+      });
+    }
+
+    res.json({
+      success: true,
+      post,
+    });
+  } catch (error) {
+    console.log(error);
+
+    res.json({
+      success: false,
+      message: error.message,
+    });
+  }
+};

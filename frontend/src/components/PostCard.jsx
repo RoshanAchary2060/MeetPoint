@@ -31,11 +31,16 @@ const PostCard = ({ post }) => {
 
   const currentUser = useSelector((state) => state.user.value);
 
+  const currentUserId = currentUser?._id;
+
   const [showComments, setShowComments] = useState(false);
 
   const { getToken } = useAuth();
 
   const handleLike = async () => {
+    if (!currentUserId) {
+      return toast("Please login first.");
+    }
     try {
       const { data } = await api.post(
         "/api/post/like",
@@ -51,9 +56,9 @@ const PostCard = ({ post }) => {
 
         setPostData((prev) => ({
           ...prev,
-          likes: prev.likes.includes(currentUser._id)
-            ? prev.likes.filter((id) => id !== currentUser._id)
-            : [...prev.likes, currentUser._id],
+          likes: prev.likes.includes(currentUserId)
+            ? prev.likes.filter((id) => id !== currentUserId)
+            : [...prev.likes, currentUserId],
         }));
       } else {
         toast(data.message);
@@ -76,6 +81,35 @@ const PostCard = ({ post }) => {
       }
     } catch (error) {
       toast.error(error.message);
+    }
+  };
+
+  const handleShare = async () => {
+    try {
+      const { data } = await api.get(`/api/post/share/${postData._id}`);
+
+      if (!data.success) {
+        return toast.error(data.message);
+      }
+
+      const shareUrl = data.shareUrl;
+
+      // Mobile browsers with native share support
+      if (navigator.share) {
+        await navigator.share({
+          title: `${postData.user.full_name}'s post`,
+          text: postData.content || "Check out this post on MeetPoint!",
+          url: shareUrl,
+        });
+        return;
+      }
+
+      // Desktop browsers
+      await navigator.clipboard.writeText(shareUrl);
+      toast.success("Post link copied to clipboard");
+    } catch (error) {
+      console.log(error);
+      toast.error("Unable to share post");
     }
   };
 
@@ -167,7 +201,7 @@ const PostCard = ({ post }) => {
           <div className="flex items-center gap-1">
             <Heart
               onClick={handleLike}
-              className={`w-4 h-4 cursor-pointer ${postData.likes.includes(currentUser._id) && "text-red-500 fill-red-500"}`}
+              className={`w-4 h-4 cursor-pointer ${currentUserId && postData.likes.includes(currentUserId) && "text-red-500 fill-red-500"}`}
             />
             <span>{postData.likes.length}</span>
           </div>
@@ -177,18 +211,27 @@ const PostCard = ({ post }) => {
             <span>{12}</span>
           </div>*/}
           <div
-            onClick={() => setShowComments(true)}
+            onClick={() => {
+              if (!currentUserId) {
+                toast.error("Please login first.");
+                return;
+              }
+
+              setShowComments(true);
+            }}
             className="flex items-center gap-1 cursor-pointer"
           >
             <MessageCircle className="w-4 h-4" />
             <span>{postData.comments_count || 0}</span>
           </div>
 
-          <div className="flex items-center gap-1">
+          <div
+            onClick={handleShare}
+            className="flex items-center gap-1 cursor-pointer hover:text-indigo-600 transition"
+          >
             <Share2 className="w-4 h-4" />
-            {/* <span>{7}</span>*/}
           </div>
-          {postData.user._id === currentUser._id && (
+          {currentUserId && postData.user._id === currentUserId && (
             <Trash2
               className="w-4 h-4 cursor-pointer text-red-500"
               onClick={handleDelete}
@@ -218,7 +261,6 @@ const PostCard = ({ post }) => {
 
           {postData.image_urls.length > 1 && (
             <>
-
               <button
                 onClick={(e) => {
                   e.stopPropagation();

@@ -9,58 +9,188 @@ export const sseController = async (req, res) => {
     return res.status(400).end();
   }
 
-  // Guard: Avoid double header execution if middleware already responded
   if (res.headersSent) {
     return;
   }
 
-  // 1. Set SSE Headers once
+
+  // SSE headers
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
   res.setHeader("Access-Control-Allow-Origin", "*");
 
+
   if (typeof res.flushHeaders === "function") {
     res.flushHeaders();
   }
 
-  // 2. Register with connection manager (does NOT set headers again)
+
+  // register connection
   addConnection(userId, req, res);
 
-  // 3. Send initial connected ping
-  res.write(`data: ${JSON.stringify({ type: "CONNECTED" })}\n\n`);
 
-  // 4. Check pending call state from database
+  // initial event
+  res.write(
+    `data: ${JSON.stringify({
+      type:"CONNECTED"
+    })}\n\n`
+  );
+
+
+  // Check pending calls
   try {
+
     const pendingCall = await PendingCall.findOne({
-      receiverId: userId,
-      status: "ringing",
+      receiverId:userId,
+      status:{
+        $in:[
+          "calling",
+          "ringing"
+        ]
+      }
     });
 
-    if (pendingCall) {
+
+    console.log(
+      "Pending Call Found:",
+      pendingCall
+    );
+
+
+    if(pendingCall){
+
       res.write(
         `data: ${JSON.stringify({
-          type: "INCOMING_AUDIO_CALL",
-          from_user_id: pendingCall.callerId,
-          caller: pendingCall.caller,
+          type:"INCOMING_AUDIO_CALL",
+          from_user_id:pendingCall.callerId,
+          caller:pendingCall.caller
         })}\n\n`
       );
+
     }
-  } catch (err) {
-    console.error("Error querying pending calls in SSE:", err);
+
+
+  } catch(error){
+
+    console.log(
+      "Pending call check error:",
+      error
+    );
+
   }
 
-  // 5. Handle client disconnect
-  req.on("close", () => {
-    removeConnection(userId);
 
-    const call = getCallByReceiver(userId);
-    if (call) {
-      const [callerId] = call;
-      sendEventToUser(callerId, {
-        type: "CALL_RECEIVER_OFFLINE",
+
+  // Disconnect handler
+  req.on("close", async()=>{
+
+    console.log(
+      "CLIENT CLOSED:",
+      userId
+    );
+
+
+    removeConnection(userId,res);
+
+
+
+    try{
+
+      /*
+        1. Remove temporary call memory
+      */
+
+      const call = getCallByReceiver(userId);
+
+
+      if(call){
+
+        const [callerId] = call;
+
+
+        sendEventToUser(
+          callerId,
+          {
+            type:"CALL_ENDED",
+            reason:"receiver_disconnected"
+          }
+        );
+
+
+        removeCall(callerId);
+
+      }
+
+
+
+      /*
+        2. Remove Mongo pending call
+      */
+
+      const pendingCall = await PendingCall.findOne({
+        $or:[
+          {
+            callerId:userId
+          },
+          {
+            receiverId:userId
+          }
+        ],
+        status:{
+          $in:[
+            "calling",
+            "ringing"
+          ]
+        }
       });
-      removeCall(callerId);
+
+
+
+      if(pendingCall){
+
+
+        console.log(
+          "Removing stale pending call:",
+          pendingCall._id
+        );
+
+
+        await PendingCall.findByIdAndDelete(
+          pendingCall._id
+        );
+
+
+        const otherUser =
+          pendingCall.callerId === userId
+          ? pendingCall.receiverId
+          : pendingCall.callerId;
+
+
+
+        sendEventToUser(
+          otherUser,
+          {
+            type:"CALL_ENDED",
+            reason:"network_disconnect"
+          }
+        );
+
+
+      }
+
+
+    }catch(error){
+
+      console.log(
+        "Disconnect cleanup error:",
+        error
+      );
+
     }
+
+
   });
+
+
 };

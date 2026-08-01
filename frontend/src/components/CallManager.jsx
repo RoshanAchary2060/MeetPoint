@@ -10,13 +10,13 @@ import ActiveCall from "./ActiveCall";
 import { useCall } from "../context/callContext.jsx";
 import { fetchConnections } from "../features/connections/connectionsSlice.js";
 import { fetchUser } from "../features/user/usersSlice.js";
-import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { addMessages } from "../features/messages/messagesSlice.js"; // ← ADD THIS
-
+import { useNavigate, useLocation } from "react-router-dom";
 const CallManager = ({ children }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const location = useLocation();
   const { getToken } = useAuth();
   const sseEvent = useSelector((state) => state.sse.event);
   const {
@@ -106,14 +106,47 @@ const CallManager = ({ children }) => {
         // ADD THIS CASE FOR REAL-TIME MESSAGES
         // ========================================
         case "NEW_MESSAGE": {
-          console.log("📩 NEW_MESSAGE received:", sseEvent.data);
+          const sender = sseEvent.message.from_user_id;
+          const currentChatPath = `/messages/${sseEvent.message.from_user_id._id}`;
 
-          // Add the new message to Redux store
-          dispatch(addMessages(sseEvent.data));
+          if (location.pathname === currentChatPath) {
+            // Already chatting with this user.
+            // Don't show toast.
+            break;
+          }
+
+          toast(
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-3">
+                <img
+                  src={sender.profile_picture}
+                  alt={sender.full_name}
+                  className="w-10 h-10 rounded-full object-cover"
+                />
+
+                <div>
+                  <p className="font-semibold">{sender.full_name}</p>
+                  <p className="text-sm text-gray-500">sent you a message</p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => {
+                  navigate(`/messages/${sender._id}`);
+                  toast.dismiss();
+                }}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white rounded px-3 py-1"
+              >
+                View
+              </button>
+            </div>,
+            {
+              duration: 6000,
+            },
+          );
 
           break;
         }
-
         case "INCOMING_AUDIO_CALL": {
           setRemoteUser(sseEvent.caller);
           setCallState("incoming");
@@ -197,8 +230,15 @@ const CallManager = ({ children }) => {
         case "CALL_CANCELLED":
         case "CALL_ENDED":
         case "CALL_RECEIVER_OFFLINE": {
+          if (targetUserId) {
+            await sendSignaling("end", {
+              to_user_id: targetUserId,
+            });
+          }
+
           endWebRTC();
           resetCallUI();
+
           break;
         }
 

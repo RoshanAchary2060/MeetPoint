@@ -18,6 +18,7 @@ import { fetchUser } from "./features/user/usersSlice";
 import { fetchConnections } from "./features/connections/connectionsSlice";
 import { setSSEEvent } from "./features/sse/sseSlice"; // Import Redux action
 import { addMessages } from "./features/messages/messagesSlice";
+import Post from "./pages/Post.jsx";
 
 const App = () => {
   const { user } = useUser();
@@ -47,46 +48,150 @@ const App = () => {
   useEffect(() => {
     if (!user) return;
 
-    const sseUrl = `${import.meta.env.VITE_BASEURL}/api/message/sse/${user.id}`;
-    const eventSource = new EventSource(sseUrl);
 
-    eventSource.onmessage = (event) => {
-      console.log(
-        "SSE CALLBACK FIRED",
-        performance.now(),
-        document.visibilityState,
+    let eventSource;
+    let reconnectTimer;
+
+
+    const connectSSE = () => {
+
+      console.log("Connecting SSE...");
+
+
+      eventSource = new EventSource(
+        `${import.meta.env.VITE_BASEURL}/api/message/sse/${user.id}`
       );
 
-      try {
-        const data = JSON.parse(event.data);
-        console.log("⚡ SSE Event Received:", data);
-        console.log("EVENT TYPE", data.type);
 
-        // 1. Dispatch event to Redux so CallManager catches call signals
-        dispatch(setSSEEvent(data));
+      eventSource.onopen = () => {
 
-        // 2. Dispatch real-time chat messages to Redux store
-        if (data.type === "NEW_MESSAGE") {
-          dispatch(addMessages(data.message));
+        console.log(
+          "✅ SSE CONNECTED"
+        );
+
+      };
+
+
+      eventSource.onmessage = (event) => {
+
+        try {
+
+          const data = JSON.parse(event.data);
+
+          console.log(
+            "⚡ SSE Event Received:",
+            data
+          );
+
+
+          if (data.type === "NEW_MESSAGE") {
+
+            const senderId =
+              data.message.from_user_id?._id ||
+              data.message.from_user_id;
+
+
+            if(
+              pathnameRef.current ===
+              `/messages/${senderId}`
+            ){
+
+              dispatch(addMessages(data.message));
+
+            }else{
+
+              dispatch(setSSEEvent(data));
+
+            }
+
+
+          }else{
+
+            dispatch(setSSEEvent(data));
+
+          }
+
+
+        } catch(error){
+
+          console.error(
+            "SSE parse error",
+            error
+          );
+
         }
-      } catch (err) {
-        console.error("Error parsing SSE data:", err);
+
+      };
+
+
+
+      eventSource.onerror = () => {
+
+        console.log(
+          "❌ SSE disconnected. Reconnecting..."
+        );
+
+
+        eventSource.close();
+
+
+        reconnectTimer = setTimeout(()=>{
+
+          connectSSE();
+
+        },3000);
+
+
+      };
+
+    };
+
+
+    connectSSE();
+
+
+
+    return ()=>{
+
+      if(eventSource){
+
+        eventSource.close();
+
       }
+
+
+      if(reconnectTimer){
+
+        clearTimeout(reconnectTimer);
+
+      }
+
     };
 
-    eventSource.onerror = (err) => {
-      console.error("SSE Connection error:", err);
-    };
 
-    return () => {
-      eventSource.close();
-    };
-  }, [user, dispatch]);
-
+  },[user,dispatch]);
   return (
     <CallManager>
       <Toaster />
+      {/* <Routes>
+        <Route path="/" element={!user ? <Login /> : <Layout />}>
+          <Route index element={<Feed />} />
+          <Route path="/messages" element={<Messages />} />
+          <Route path="/messages/:userId" element={<Chatbox />} />
+          <Route path="/connections" element={<Connections />} />
+          <Route path="/discover" element={<Discover />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/profile/:profileId" element={<Profile />} />
+          <Route path="/create-post" element={<CreatePost />} />
+          <Route path="/post/:postId" element={<Post />} />
+        </Route>
+      </Routes>*/}
+
       <Routes>
+        {/* Public Post Route */}
+        <Route path="/post/:postId" element={<Post />} />
+
+        {/* Protected Routes */}
         <Route path="/" element={!user ? <Login /> : <Layout />}>
           <Route index element={<Feed />} />
           <Route path="/messages" element={<Messages />} />
@@ -98,6 +203,8 @@ const App = () => {
           <Route path="/create-post" element={<CreatePost />} />
         </Route>
       </Routes>
+
+
     </CallManager>
   );
 };

@@ -5,45 +5,68 @@ const connections = {};
 
 export const addConnection = (userId, req, res) => {
   if (!userId) return;
+
   const key = userId.toString();
 
-  // 1. Clean up existing active connection if user reconnected or refreshed tab
+  console.log("================================");
+  console.log("ADD CONNECTION:", key);
+  console.log("Before:", Object.keys(connections));
+
+  const connection = {
+    req,
+    res,
+    pingInterval: null,
+  };
+
+  // Close old connection if it exists
   if (connections[key]) {
-    try {
-      clearInterval(connections[key].pingInterval);
-      if (!connections[key].res.writableEnded) {
-        connections[key].res.end();
-      }
-    } catch (e) {
-      // Connection already closed
+    clearInterval(connections[key].pingInterval);
+
+    if (!connections[key].res.writableEnded) {
+      connections[key].res.end();
     }
   }
 
-  // 2. Keep connection alive with periodic pings every 25s (prevents proxy timeouts)
-  const pingInterval = setInterval(() => {
+  connection.pingInterval = setInterval(() => {
     if (!res.writableEnded) {
-      res.write(": keep-alive ping\n\n");
+      res.write(": keep-alive\n\n");
     } else {
-      clearInterval(pingInterval);
+      clearInterval(connection.pingInterval);
     }
   }, 25000);
 
-  // 3. Save connection state
-  connections[key] = { res, req, pingInterval };
-  console.log(`🔌 SSE Connected: ${key}`);
-};
+  connections[key] = connection;
 
-export const removeConnection = async (userId) => {
+  console.log("After:", Object.keys(connections));
+  console.log("================================");
+};
+export const removeConnection = async (userId, res) => {
   if (!userId) return;
+
   const key = userId.toString();
 
-  if (connections[key]) {
-    clearInterval(connections[key].pingInterval);
-    delete connections[key];
-    console.log(`❌ SSE Disconnected: ${key}`);
+  console.log("================================");
+  console.log("REMOVE CONNECTION:", key);
+  console.log("Before:", Object.keys(connections));
+
+  // Ignore stale close events
+  if (!connections[key]) {
+    console.log("Already removed");
+    return;
   }
 
-  // EDGE CASE HANDLER: Receiver went offline while ringing
+  if (connections[key].res !== res) {
+    console.log("Ignoring stale connection");
+    return;
+  }
+
+  clearInterval(connections[key].pingInterval);
+
+  delete connections[key];
+
+  console.log("After:", Object.keys(connections));
+  console.log("================================");
+
   try {
     const activeRingingCall = await PendingCall.findOne({
       receiverId: key,
@@ -58,11 +81,10 @@ export const removeConnection = async (userId) => {
         type: "CALL_REVERTED_TO_CALLING",
       });
     }
-  } catch (error) {
-    console.error("Error handling SSE disconnect fallback:", error);
+  } catch (err) {
+    console.error(err);
   }
 };
-
 export const sendEventToUser = (userId, data) => {
   console.log("Sending event to:", userId);
   console.log("Current connections:", Object.keys(connections));
