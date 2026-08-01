@@ -243,10 +243,22 @@ export const sendConnectionRequest = async (req, res) => {
         from_user_id: userId,
         to_user_id: id,
       });
+
       await inngest.send({
         name: "app/connection-request",
-        data: { connectionId: newConnection._id },
+        data: {
+          connectionId: newConnection._id,
+        },
       });
+
+      sendEventToUser(userId, {
+        type: "RELATIONSHIP_UPDATE",
+      });
+
+      sendEventToUser(id, {
+        type: "RELATIONSHIP_UPDATE",
+      });
+
       return res.json({
         success: true,
         message: "Connection request sent successfully",
@@ -257,8 +269,6 @@ export const sendConnectionRequest = async (req, res) => {
         message: "You are already connected with this user",
       });
     }
-    sendEventToUser(userId, { type: "RELATIONSHIP_UPDATE" });
-    sendEventToUser(id, { type: "RELATIONSHIP_UPDATE" });
     return res.json({
       success: false,
       message: "Connection request pending",
