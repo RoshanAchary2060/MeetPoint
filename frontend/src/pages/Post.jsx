@@ -21,7 +21,7 @@ const Post = () => {
     try {
       setLoading(true);
       const { data } = await api.get(`/api/post/${postId}`);
-
+      console.log('single post data in postcomponent', data)
       if (data.success) {
         setPost(data.post);
       } else {

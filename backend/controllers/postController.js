@@ -180,6 +180,7 @@ export const sharePost = async (req, res) => {
 // GET SINGLE POST
 export const getSinglePost = async (req, res) => {
   try {
+    console.log('single post data in postcontroller', req.params)
     const { postId } = req.params;
 
     const post = await Post.findById(postId).populate("user");
