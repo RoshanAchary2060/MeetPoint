@@ -42,6 +42,10 @@ app.use("/api/story", storyRouter);
 app.use("/api/message", messageRouter);
 app.use("/api/comment", commentRouter);
 
+app.get("/api/test-route", (req, res) => {
+  res.json({ success: true, message: "Backend is updated" });
+});
+
 app.use("/api/call", callRoutes);
 
 const PORT = process.env.PORT || 4000;
