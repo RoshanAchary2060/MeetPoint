@@ -3,7 +3,7 @@ import imagekit from "../configs/imageKit.js";
 import Post from "../models/Post.js";
 import User from "../models/User.js";
 import Comment from "../models/Comment.js";
-import { sendEventToUser } from "../utils/sse.js";
+import { sendEventToUser, sendEventToAll } from "../utils/sse.js";
 
 //  ADD POST
 export const addPost = async (req, res) => {

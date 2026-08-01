@@ -71,3 +71,18 @@ export const sendEventToUser = (userId, data) => {
     connections[key].res.write(`data: ${JSON.stringify(data)}\n\n`);
   }
 };
+
+export const sendEventToAll = (data, excludeUserId = null) => {
+  Object.entries(connections).forEach(([userId, connection]) => {
+    if (excludeUserId && userId === excludeUserId.toString()) {
+      return;
+    }
+
+    if (
+      connection.res &&
+      !connection.res.writableEnded
+    ) {
+      connection.res.write(`data: ${JSON.stringify(data)}\n\n`);
+    }
+  });
+};
