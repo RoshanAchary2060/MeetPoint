@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "@clerk/clerk-react";
-import { useCall } from "../context/CallContext";
+import { useCall } from "../context/callContext.jsx";
 import api from "../api/axios";
 
 const ActiveCall = ({ onEndWebRTC, toggleMute }) => {

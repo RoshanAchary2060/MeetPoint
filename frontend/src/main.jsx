@@ -5,7 +5,7 @@ import { BrowserRouter } from "react-router-dom";
 import { Provider } from "react-redux";
 import store from "./app/store.js";
 import { ClerkProvider } from "@clerk/clerk-react";
-import { CallProvider } from "./context/CallContext.jsx";
+import { CallProvider } from "./context/callContext.jsx";
 
 createRoot(document.getElementById("root")).render(
   <ClerkProvider publishableKey={import.meta.env.VITE_CLERK_PUBLISHABLE_KEY}>
