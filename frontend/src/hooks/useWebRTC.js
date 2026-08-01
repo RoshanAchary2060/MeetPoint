@@ -1,6 +1,6 @@
 // hooks/useWebRTC.js
 import { useRef, useState, useCallback } from "react";
-import { useCall } from "../context/CallContext.jsx";
+import { useCall } from "../context/callContext";
 
 const servers = {
   iceServers: [
