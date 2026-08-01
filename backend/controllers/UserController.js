@@ -214,6 +214,7 @@ export const unfollowUser = async (req, res) => {
 };
 
 // Send Connection  Request
+// Send Connection Request - Alternative Fix
 export const sendConnectionRequest = async (req, res) => {
   try {
     const userId = getUserIdFromReq(req);
@@ -237,29 +238,52 @@ export const sendConnectionRequest = async (req, res) => {
     });
 
     if (!connection) {
-      const newConnection = await Connection.create({ from_user_id: userId, to_user_id: id });
-      await inngest.send({ name: "app/connection-request", data: { connectionId: newConnection._id } });
+      const newConnection = await Connection.create({
+        from_user_id: userId,
+        to_user_id: id
+      });
+
+      await inngest.send({
+        name: "app/connection-request",
+        data: { connectionId: newConnection._id }
+      });
 
       sendEventToUser(userId, { type: "RELATIONSHIP_UPDATE" });
       sendEventToUser(id, { type: "RELATIONSHIP_UPDATE" });
-      const sender = await User.findById(userId)
-        .select("_id full_name username profile_picture");
 
+      // FIX: Get sender data as plain object
+      const sender = await User.findById(userId)
+        .select("_id full_name username profile_picture")
+        .lean();
+
+      // FIX: Send as JSON string if needed
       sendEventToUser(id, {
         type: "CONNECTION_REQUEST_RECEIVED",
-        fromUser: sender,
+        fromUser: JSON.stringify({
+          _id: sender._id,
+          full_name: sender.full_name,
+          username: sender.username,
+          profile_picture: sender.profile_picture
+        })
       });
-      return res.json({ success: true, message: "Connection request sent successfully" });
+
+      return res.json({
+        success: true,
+        message: "Connection request sent successfully"
+      });
+
     } else if (connection.status === "accepted") {
       return res.json({ success: false, message: "Already connected" });
     }
+
     return res.json({ success: false, message: "Connection request pending" });
+
   } catch (error) {
     console.error(error);
+    console.log(error);
     res.json({ success: false, message: error.message });
   }
-}
-// GET USER CONNECTIONS
+}// GET USER CONNECTIONS
 //
 //
 export const getUserConnections = async (req, res) => {

@@ -71,13 +71,18 @@ const CallManager = ({ children }) => {
         }
 
         case "CONNECTION_REQUEST_RECEIVED": {
+          // If you used JSON.stringify
+          const fromUser =
+            typeof sseEvent.fromUser === "string"
+              ? JSON.parse(sseEvent.fromUser)
+              : sseEvent.fromUser;
+
           toast(
             <div>
               <p>
-                <b>{sseEvent.fromUser.full_name}</b> sent you a connection
-                request.
+                <b>{fromUser.full_name || fromUser?.full_name || "Someone"}</b>{" "}
+                sent you a connection request.
               </p>
-
               <button
                 onClick={() => {
                   navigate("/connections");
@@ -92,7 +97,6 @@ const CallManager = ({ children }) => {
               duration: Infinity,
             },
           );
-
           break;
         }
         case "INCOMING_AUDIO_CALL": {
