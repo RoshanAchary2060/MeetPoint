@@ -12,7 +12,7 @@ import { fetchConnections } from "../features/connections/connectionsSlice.js";
 import { fetchUser } from "../features/user/usersSlice.js";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
-import { addMessages } from "../features/messages/messagesSlice.js";
+import { addMessages } from "../features/messages/messagesSlice.js"; // ← ADD THIS
 
 const CallManager = ({ children }) => {
   const dispatch = useDispatch();
@@ -72,7 +72,6 @@ const CallManager = ({ children }) => {
         }
 
         case "CONNECTION_REQUEST_RECEIVED": {
-          // If you used JSON.stringify
           const fromUser =
             typeof sseEvent.fromUser === "string"
               ? JSON.parse(sseEvent.fromUser)
@@ -87,7 +86,7 @@ const CallManager = ({ children }) => {
               <button
                 onClick={() => {
                   navigate("/connections", {
-                    state: { activeTab: "Received" }, // ← ADD THIS
+                    state: { activeTab: "Received" },
                   });
                   toast.dismiss();
                 }}
@@ -103,27 +102,18 @@ const CallManager = ({ children }) => {
           break;
         }
 
+        // ========================================
+        // ADD THIS CASE FOR REAL-TIME MESSAGES
+        // ========================================
         case "NEW_MESSAGE": {
           console.log("📩 NEW_MESSAGE received:", sseEvent.data);
 
           // Add the new message to Redux store
           dispatch(addMessages(sseEvent.data));
 
-          // Play notification sound
-          const audio = new Audio('/notification.mp3'); // Add a sound file
-          audio.play().catch(e => console.log('Audio play failed:', e));
-
-          // Optional: Show a toast notification for the new message
-          const fromUser = sseEvent.data.from_user_id;
-          if (fromUser) {
-            toast.success(`New message from ${fromUser.full_name || 'Someone'}`, {
-              duration: 3000,
-              icon: '💬',
-            });
-          }
-
           break;
         }
+
         case "INCOMING_AUDIO_CALL": {
           setRemoteUser(sseEvent.caller);
           setCallState("incoming");
@@ -144,28 +134,9 @@ const CallManager = ({ children }) => {
           break;
         }
 
-        // case "CALL_ACCEPTED": {
-        //   console.log("CALL_ACCEPTED handler START");
-        //   const offer = await createOffer((candidate) => {
-        //     sendSignaling("ice-candidate", {
-        //       to_user_id: targetUserId,
-        //       candidate,
-        //     });
-        //   });
-        //   console.log("Offer created");
-
-        //   await sendSignaling("offer", { to_user_id: targetUserId, offer });
-        //   console.log("Offer sent");
-        //   console.log("Setting callState connected");
-        //   setCallState("connected");
-        //   console.log("Connected state requested");
-        //   break;
-        // }
-
         case "CALL_ACCEPTED": {
           console.log("===== CALL_ACCEPTED =====");
 
-          // Show the ActiveCall UI immediately
           setCallState("connected");
           console.log("REMOTE USER", remoteUser);
           console.log("TARGET USER", targetUserId);
@@ -188,22 +159,9 @@ const CallManager = ({ children }) => {
           break;
         }
 
-        // case "WEBRTC_OFFER": {
-        //   const answer = await createAnswer(sseEvent.offer, (candidate) => {
-        //     sendSignaling("ice-candidate", {
-        //       to_user_id: targetUserId,
-        //       candidate,
-        //     });
-        //   });
-        //   await sendSignaling("answer", { to_user_id: targetUserId, answer });
-        //   setCallState("connected");
-        //   break;
-        // }
-
         case "WEBRTC_OFFER": {
           console.log("===== WEBRTC_OFFER =====");
 
-          // Show the ActiveCall UI immediately
           setCallState("connected");
 
           const answer = await createAnswer(sseEvent.offer, (candidate) => {
@@ -248,7 +206,6 @@ const CallManager = ({ children }) => {
           break;
       }
 
-      // Always clear processed event from Redux store
       dispatch(clearSSEEvent());
     };
 

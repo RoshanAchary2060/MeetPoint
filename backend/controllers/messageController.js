@@ -10,6 +10,7 @@ import {
 
 // SEND MESSAGE
 // SEND MESSAGE - FIXED
+// SEND MESSAGE
 export const sendMessage = async (req, res) => {
   try {
     const { userId } = req.auth();
@@ -43,29 +44,28 @@ export const sendMessage = async (req, res) => {
       message_type,
     });
 
-    // Populate the message with user data BEFORE sending SSE
-    const messageWithUserData = await Message.findById(message._id)
+    // Populate the message with user data
+    const populatedMessage = await Message.findById(message._id)
       .populate("from_user_id", "full_name username profile_picture")
       .populate("to_user_id", "full_name username profile_picture");
 
-    // SEND THE MESSAGE TO THE CLIENT USING SSE (DO THIS FIRST)
+    // Send SSE to the receiver
     sendEventToUser(to_user_id, {
       type: "NEW_MESSAGE",
-      data: messageWithUserData,
+      message: populatedMessage,
     });
 
-    // Send the response back to the sender
+    // Send response back to sender
     res.json({
       success: true,
-      message: messageWithUserData
+      message: populatedMessage
     });
 
   } catch (error) {
     console.log(error);
     res.json({ success: false, message: error.message });
   }
-};
-// GET CHAT MESSAGES
+};// GET CHAT MESSAGES
 export const getChatMessages = async (req, res) => {
   try {
     const { userId } = req.auth();
