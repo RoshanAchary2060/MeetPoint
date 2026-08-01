@@ -20,6 +20,6 @@ postRouter.delete("/:postId", protect, deletePost);
 
 
 // --- 3. PUBLIC WILDCARD PARAMETER ROUTES ---
-postRouter.get("/:postId", getSinglePost);
+postRouter.get("/single/:postId", getSinglePost);
 
 export default postRouter;

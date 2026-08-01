@@ -20,7 +20,7 @@ const Post = () => {
   const fetchPost = async () => {
     try {
       setLoading(true);
-      const { data } = await api.get(`/api/post/${postId}`);
+      const { data } = await api.get(`/api/post/single/${postId}`);
       console.log('single post data in postcomponent', data)
       if (data.success) {
         setPost(data.post);
