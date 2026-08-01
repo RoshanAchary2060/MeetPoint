@@ -4,6 +4,7 @@ import {
   addPost,
   deletePost,
   getFeedPosts,
+  getShareLink,
   getSinglePost,
   likePost,
   sharePost,
@@ -22,5 +23,6 @@ postRouter.delete("/:postId", protect, deletePost);
 postRouter.get("/share/:postId", sharePost);
 
 postRouter.get("/:postId", getSinglePost);
+postRouter.get("/share/:postId", getShareLink);
 
 export default postRouter;

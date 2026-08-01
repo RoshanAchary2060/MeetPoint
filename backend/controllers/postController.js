@@ -204,3 +204,31 @@ export const getSinglePost = async (req, res) => {
     });
   }
 };
+
+// SHARE POST
+export const getShareLink = async (req, res) => {
+  try {
+    const { postId } = req.params;
+
+    const post = await Post.findById(postId);
+
+    if (!post) {
+      return res.json({
+        success: false,
+        message: "Post not found",
+      });
+    }
+
+    return res.json({
+      success: true,
+      url: `${process.env.FRONTEND_URL}/post/${postId}`,
+    });
+  } catch (error) {
+    console.log(error);
+
+    return res.json({
+      success: false,
+      message: error.message,
+    });
+  }
+};

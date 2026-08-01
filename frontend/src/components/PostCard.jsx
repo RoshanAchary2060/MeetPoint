@@ -86,33 +86,27 @@ const PostCard = ({ post }) => {
 
   const handleShare = async () => {
     try {
-      const { data } = await api.get(`https://www.meetpointapp.vercel.app/api/post/share/${postData._id}`);
+      const { data } = await api.get(`/api/post/share/${postData._id}`);
 
       if (!data.success) {
         return toast.error(data.message);
       }
 
-      const shareUrl = data.shareUrl;
-
-      // Mobile browsers with native share support
       if (navigator.share) {
         await navigator.share({
-          title: `${postData.user.full_name}'s post`,
-          text: postData.content || "Check out this post on MeetPoint!",
-          url: shareUrl,
+          title: "MeetPoint",
+          text: "Check out this post on MeetPoint!",
+          url: data.url,
         });
-        return;
+      } else {
+        await navigator.clipboard.writeText(data.url);
+        toast.success("Post link copied to clipboard");
       }
-
-      // Desktop browsers
-      await navigator.clipboard.writeText(shareUrl);
-      toast.success("Post link copied to clipboard");
     } catch (error) {
       console.log(error);
       toast.error("Unable to share post");
     }
   };
-
   const nextImage = () => {
     setSelectedImageIndex((prev) =>
       prev === postData.image_urls.length - 1 ? 0 : prev + 1,
