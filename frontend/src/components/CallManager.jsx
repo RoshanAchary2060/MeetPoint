@@ -4,8 +4,8 @@ import { useAuth } from "@clerk/clerk-react";
 import useWebRTC from "../hooks/useWebRTC";
 import api from "../api/axios";
 import { clearSSEEvent } from "../features/sse/sseSlice";
-// import { useCall } from "../context/CallContext.jsx"; // Added missing import
-
+import { fetchConnections } from "../features/connections/connectionsSlice.js";
+import { fetchUser } from "../features/user/usersSlice.js";
 import CallingScreen from "./CallingScreen";
 import IncomingCallModal from "./IncomingCallModal";
 import ActiveCall from "./ActiveCall";
@@ -56,6 +56,17 @@ const CallManager = ({ children }) => {
         document.visibilityState,
       );
       switch (sseEvent.type) {
+        case "RELATIONSHIP_UPDATE": {
+          console.log("🔥 RELATIONSHIP_UPDATE received");
+
+          const token = await getToken();
+
+          dispatch(fetchConnections(token));
+          dispatch(fetchUser(token));
+
+          break;
+        }
+
         case "INCOMING_AUDIO_CALL": {
           setRemoteUser(sseEvent.caller);
           setCallState("incoming");
