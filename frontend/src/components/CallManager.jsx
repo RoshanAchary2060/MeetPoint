@@ -4,11 +4,12 @@ import { useAuth } from "@clerk/clerk-react";
 import useWebRTC from "../hooks/useWebRTC";
 import api from "../api/axios";
 import { clearSSEEvent } from "../features/sse/sseSlice";
-import { useCall } from "../context/CallContext"; // Added missing import
+// import { useCall } from "../context/CallContext.jsx"; // Added missing import
 
 import CallingScreen from "./CallingScreen";
 import IncomingCallModal from "./IncomingCallModal";
 import ActiveCall from "./ActiveCall";
+import { useCall } from "../context/callContext.jsx";
 
 const CallManager = ({ children }) => {
   const dispatch = useDispatch();

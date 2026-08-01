@@ -8,9 +8,9 @@ import {
   addMessages,
   fetchMessages,
   resetMessages,
-} from "../features/messages/messagesSlice";
+} from "../features/messages/messagesSlice.js";
 import toast from "react-hot-toast";
-import { useCall } from "../context/CallContext";
+import { useCall } from "../context/callContext";
 
 const Chatbox = () => {
   const { messages } = useSelector((state) => state.messages);
