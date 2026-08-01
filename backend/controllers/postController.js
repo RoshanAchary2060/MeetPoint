@@ -178,18 +178,15 @@ export const sharePost = async (req, res) => {
 };
 
 // GET SINGLE POST
+// GET SINGLE POST (Public)
 export const getSinglePost = async (req, res) => {
   try {
-    console.log('single post data in postcontroller', req.params)
     const { postId } = req.params;
 
     const post = await Post.findById(postId).populate("user");
 
     if (!post) {
-      return res.json({
-        success: false,
-        message: "Post not found",
-      });
+      return res.json({ success: false, message: "Post not found" });
     }
 
     res.json({
@@ -198,14 +195,9 @@ export const getSinglePost = async (req, res) => {
     });
   } catch (error) {
     console.log(error);
-
-    res.json({
-      success: false,
-      message: error.message,
-    });
+    res.json({ success: false, message: error.message });
   }
 };
-
 // SHARE POST
 // postController.js
 export const getShareLink = async (req, res) => {

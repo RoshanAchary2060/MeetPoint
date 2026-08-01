@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "https://meetpoint-server.vercel.app"
+  baseURL: import.meta.env.VITE_BASEURL || "http://localhost:4000",
 });
 
 export default api;

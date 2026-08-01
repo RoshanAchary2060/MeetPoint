@@ -18,9 +18,6 @@ postRouter.get("/feed", protect, getFeedPosts);
 postRouter.post("/like", protect, likePost);
 postRouter.delete("/:postId", protect, deletePost);
 
-// --- 2. PUBLIC SPECIFIC ROUTES ---
-// Must come BEFORE /:postId to prevent Express from treating "share" as a parameter
-// postRouter.get("/share/:postId", getShareLink);
 
 // --- 3. PUBLIC WILDCARD PARAMETER ROUTES ---
 postRouter.get("/:postId", getSinglePost);
