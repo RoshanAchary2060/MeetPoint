@@ -16,11 +16,6 @@ const CommentModal = ({ post, onClose, setPostData }) => {
 
   const inputRef = useRef(null);
 
-  useEffect(() => {
-    inputRef.current?.focus();
-    fetchComments();
-  }, []);
-
   const fetchComments = async () => {
     try {
       const token = await getToken();
@@ -102,6 +97,11 @@ const CommentModal = ({ post, onClose, setPostData }) => {
       toast.error(error.message);
     }
   };
+
+  useEffect(() => {
+    inputRef.current?.focus();
+    fetchComments();
+  }, []);
 
   return (
     <div

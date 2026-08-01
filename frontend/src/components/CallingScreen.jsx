@@ -1,8 +1,8 @@
 import { useAuth } from "@clerk/clerk-react";
-import { useCall } from "../context/CallContext";
 import useWebRTC from "../hooks/useWebRTC";
 import toast from "react-hot-toast";
 import api from "../api/axios";
+import { useCall } from "../context/callContext";
 
 const CallingScreen = () => {
   const { getToken } = useAuth();

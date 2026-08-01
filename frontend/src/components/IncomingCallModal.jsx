@@ -1,7 +1,7 @@
 import { useAuth } from "@clerk/clerk-react";
 import api from "../api/axios.js";
 import toast from "react-hot-toast";
-import { useCall } from "../context/CallContext.jsx";
+import { useCall } from "../context/callContext.jsx";
 
 const IncomingCallModal = () => {
   const { callState, remoteUser, setCallState } = useCall();
