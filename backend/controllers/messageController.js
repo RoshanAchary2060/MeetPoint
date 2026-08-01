@@ -9,6 +9,7 @@ import {
 } from "../utils/sse.js";
 
 // SEND MESSAGE
+// SEND MESSAGE - FIXED
 export const sendMessage = async (req, res) => {
   try {
     const { userId } = req.auth();
@@ -42,25 +43,28 @@ export const sendMessage = async (req, res) => {
       message_type,
     });
 
-    res.json({ success: true, message });
+    // Populate the message with user data BEFORE sending SSE
+    const messageWithUserData = await Message.findById(message._id)
+      .populate("from_user_id", "full_name username profile_picture")
+      .populate("to_user_id", "full_name username profile_picture");
 
-
-
-    // SEND THE MESSAGE TO THE CLIENT USING SSE
-    const messageWithUserData = await Message.findById(message._id).populate(
-      "from_user_id",
-    );
-
+    // SEND THE MESSAGE TO THE CLIENT USING SSE (DO THIS FIRST)
     sendEventToUser(to_user_id, {
       type: "NEW_MESSAGE",
       data: messageWithUserData,
     });
+
+    // Send the response back to the sender
+    res.json({
+      success: true,
+      message: messageWithUserData
+    });
+
   } catch (error) {
     console.log(error);
     res.json({ success: false, message: error.message });
   }
 };
-
 // GET CHAT MESSAGES
 export const getChatMessages = async (req, res) => {
   try {

@@ -12,6 +12,7 @@ import { fetchConnections } from "../features/connections/connectionsSlice.js";
 import { fetchUser } from "../features/user/usersSlice.js";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
+import { addMessages } from "../features/messages/messagesSlice.js";
 
 const CallManager = ({ children }) => {
   const dispatch = useDispatch();
@@ -99,6 +100,28 @@ const CallManager = ({ children }) => {
               duration: Infinity,
             },
           );
+          break;
+        }
+
+        case "NEW_MESSAGE": {
+          console.log("📩 NEW_MESSAGE received:", sseEvent.data);
+
+          // Add the new message to Redux store
+          dispatch(addMessages(sseEvent.data));
+
+          // Play notification sound
+          const audio = new Audio('/notification.mp3'); // Add a sound file
+          audio.play().catch(e => console.log('Audio play failed:', e));
+
+          // Optional: Show a toast notification for the new message
+          const fromUser = sseEvent.data.from_user_id;
+          if (fromUser) {
+            toast.success(`New message from ${fromUser.full_name || 'Someone'}`, {
+              duration: 3000,
+              icon: '💬',
+            });
+          }
+
           break;
         }
         case "INCOMING_AUDIO_CALL": {
