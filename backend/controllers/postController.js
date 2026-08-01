@@ -180,6 +180,7 @@ export const sharePost = async (req, res) => {
 // GET SINGLE POST
 // GET SINGLE POST (Public)
 export const getSinglePost = async (req, res) => {
+  console.log('inside getSinglePost', req.params);
   try {
     const { postId } = req.params;
 
@@ -188,6 +189,7 @@ export const getSinglePost = async (req, res) => {
     if (!post) {
       return res.json({ success: false, message: "Post not found" });
     }
+    console.log('getsingle post successfully returning');
 
     res.json({
       success: true,
