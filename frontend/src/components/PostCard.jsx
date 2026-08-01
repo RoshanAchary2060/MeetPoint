@@ -86,13 +86,8 @@ const PostCard = ({ post }) => {
 
   const handleShare = async () => {
     try {
-      const { data } = await api.get(`/api/post/share/${postData._id}`);
-
-      if (!data.success || !data.url) {
-        return toast.error(data.message || "Could not generate share link");
-      }
-
-      const shareUrl = data.url;
+      // Just use the post ID directly without hitting the backend
+      const shareUrl = `https://meetpointapp.vercel.app/post/${postData._id}`;
 
       // 1. Try Native Web Share API (Mobile & HTTPS Desktop)
       if (navigator.share) {
@@ -102,9 +97,8 @@ const PostCard = ({ post }) => {
             text: "Check out this post on MeetPoint!",
             url: shareUrl,
           });
-          return; // Native share opened successfully
+          return;
         } catch (shareErr) {
-          // User closed/cancelled the share sheet — suppress error toast
           if (shareErr.name === "AbortError") return;
         }
       }
@@ -115,7 +109,7 @@ const PostCard = ({ post }) => {
         return toast.success("Post link copied to clipboard!");
       }
 
-      // 3. Document ExecCommand Fallback (Older Browsers / Non-secure context)
+      // 3. Document ExecCommand Fallback
       const textArea = document.createElement("textarea");
       textArea.value = shareUrl;
       document.body.appendChild(textArea);
@@ -124,7 +118,6 @@ const PostCard = ({ post }) => {
       document.body.removeChild(textArea);
 
       toast.success("Post link copied to clipboard!");
-
     } catch (error) {
       console.error("Share error:", error);
       toast.error("Unable to share post");
