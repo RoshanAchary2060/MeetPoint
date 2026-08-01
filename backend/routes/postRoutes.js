@@ -21,8 +21,8 @@ postRouter.post("/like", protect, likePost);
 postRouter.delete("/:postId", protect, deletePost);
 
 // postRouter.get("/share/:postId", sharePost);
+postRouter.get("/share/:postId", getShareLink);
 
 postRouter.get("/:postId", getSinglePost);
-postRouter.get("/share/:postId", getShareLink);
 
 export default postRouter;
