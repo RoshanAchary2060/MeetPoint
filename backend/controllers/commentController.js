@@ -85,7 +85,10 @@ export const deleteComment = async (req, res) => {
     const { userId } = req.auth();
     const { commentId } = req.params;
 
-    const comment = await Comment.findById(commentId).populate("post_id");
+    const comment = await Comment.findById(commentId).populate({
+      path: "post_id",
+      populate: { path: "user" } // Pre-populate the post's user if needed
+    });
 
     if (!comment) {
       return res.json({
@@ -97,7 +100,7 @@ export const deleteComment = async (req, res) => {
     // Only comment owner or post owner can delete
     if (
       comment.user_id.toString() !== userId &&
-      comment.post_id.user.toString() !== userId
+      comment.post_id.user._id.toString() !== userId
     ) {
       return res.json({
         success: false,
@@ -105,9 +108,12 @@ export const deleteComment = async (req, res) => {
       });
     }
 
+    // Store post ID before deleting comment
+    const postId = comment.post_id._id;
+
     await Comment.findByIdAndDelete(commentId);
 
-    await Post.findByIdAndUpdate(comment.post_id._id, {
+    await Post.findByIdAndUpdate(postId, {
       $inc: { comments_count: -1 },
     });
 
