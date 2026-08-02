@@ -79,10 +79,15 @@ const sendNewConnectionRequestReminder = inngest.createFunction(
 
   async ({ event, step }) => {
     const { connectionId } = event.data;
+
+    // Immediate email when the request is sent
     await step.run("send-connection-request-mail", async () => {
       const connection = await Connection.findById(connectionId).populate(
         "from_user_id to_user_id",
       );
+      if (!connection) {
+        return { message: "Connection no longer exists" };
+      }
       const subject = `👋 New Connection Request`;
       const body = `<div style='font-family: Arial, sans-serif; padding: 20px;'>
         <h2>Hi ${connection.to_user_id.full_name},<h2>
@@ -100,12 +105,18 @@ const sendNewConnectionRequestReminder = inngest.createFunction(
         body,
       });
     });
+
     const in24Hours = new Date(Date.now() + 24 * 60 * 60 * 1000);
     await step.sleepUntil("wait-for-24-hours", in24Hours);
+
+    // Reminder email 24 hours later, if still pending
     await step.run("send-connection-request-reminder", async () => {
       const connection = await Connection.findById(connectionId).populate(
         "from_user_id to_user_id",
       );
+      if (!connection) {
+        return { message: "Connection no longer exists" };
+      }
       if (connection.status === "accepted") {
         return { message: "Already accepted" };
       }
@@ -164,6 +175,7 @@ const sendNotificationOfUnseenMessages = inngest.createFunction(
     });
     for (const userId in unseenCount) {
       const user = await User.findById(userId);
+      if (!user) continue;
       const subject = `📩 You have ${unseenCount[userId]} unseen messages`;
       const body = `
         <div>
