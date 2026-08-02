@@ -21,6 +21,7 @@ import socket from "./socket/socket";
 import { fetchUser } from "./features/user/usersSlice";
 import { fetchConnections } from "./features/connections/connectionsSlice";
 import { setSSEEvent } from "./features/sse/sseSlice";
+import { addMessages } from "./features/messages/messagesSlice";
 
 const App = () => {
   const { user } = useUser();
@@ -132,6 +133,24 @@ const App = () => {
     socket.on("call-ended", onEnd);
     socket.on("user-offline", onOffline);
 
+    const onNewMessage = (message) => {
+      console.log("📩 Incoming real-time message received:", message);
+
+      // 1. Add to Redux store immediately
+      dispatch(addMessages(message));
+
+      // 2. Trigger SSE/Toast event state
+      dispatch(
+        setSSEEvent({
+          type: "NEW_MESSAGE",
+          message: message,
+        })
+      );
+    };
+
+    // Attach socket listener
+    socket.on("new-message", onNewMessage);
+
     // Cleanup listeners & disconnect socket on unmount/logout
     return () => {
       socket.off("connect", onConnect);
@@ -145,6 +164,7 @@ const App = () => {
       socket.off("ice-candidate", onIce);
       socket.off("call-ended", onEnd);
       socket.off("user-offline", onOffline);
+      socket.off("new-message", onNewMessage);
 
       // Disconnect socket if user signs out
       if (!user && socket.connected) {

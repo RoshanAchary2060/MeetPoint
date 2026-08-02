@@ -8,10 +8,13 @@ import Message from "../models/Message.js";
 //   sendEventToUser,
 // } from "../utils/sse.js";
 import { sendEventToUser } from "../utils/pusher.js";
+import { getReceiverSocketId, io } from "../socket/socketHandler.js";
 
 // SEND MESSAGE
 // SEND MESSAGE - FIXED
 // SEND MESSAGE
+// Inside sendMessage controller in your backend
+
 export const sendMessage = async (req, res) => {
   try {
     const { userId } = req.auth();
@@ -50,23 +53,27 @@ export const sendMessage = async (req, res) => {
       .populate("from_user_id", "full_name username profile_picture")
       .populate("to_user_id", "full_name username profile_picture");
 
-    // Send SSE to the receiver
-    sendEventToUser(to_user_id, {
-      type: "NEW_MESSAGE",
-      message: populatedMessage,
-    });
+    // 🟢 REAL-TIME SOCKET EMIT
+    const receiverSocketId = getReceiverSocketId(to_user_id);
+
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit("new-message", populatedMessage);
+      console.log(`📩 Sent real-time message to socket: ${receiverSocketId}`);
+    } else {
+      console.log(`⚠️ User ${to_user_id} is offline or socket not registered`);
+    }
 
     // Send response back to sender
     res.json({
       success: true,
-      message: populatedMessage
+      message: populatedMessage,
     });
-
   } catch (error) {
     console.log(error);
     res.json({ success: false, message: error.message });
   }
-};// GET CHAT MESSAGES
+};
+
 export const getChatMessages = async (req, res) => {
   try {
     const { userId } = req.auth();

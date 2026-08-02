@@ -122,48 +122,6 @@ const CallManager = ({ children }) => {
         // ========================================
         // ADD THIS CASE FOR REAL-TIME MESSAGES
         // ========================================
-        case "NEW_MESSAGE": {
-          const sender = sseEvent.message.from_user_id;
-          const currentChatPath = `/messages/${sseEvent.message.from_user_id._id}`;
-
-          if (location.pathname === currentChatPath) {
-            // Already chatting with this user.
-            // Don't show toast.
-            break;
-          }
-
-          toast(
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center gap-3">
-                <img
-                  src={sender.profile_picture}
-                  alt={sender.full_name}
-                  className="w-10 h-10 rounded-full object-cover"
-                />
-
-                <div>
-                  <p className="font-semibold">{sender.full_name}</p>
-                  <p className="text-sm text-gray-500">sent you a message</p>
-                </div>
-              </div>
-
-              <button
-                onClick={() => {
-                  navigate(`/messages/${sender._id}`);
-                  toast.dismiss();
-                }}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white rounded px-3 py-1"
-              >
-                View
-              </button>
-            </div>,
-            {
-              duration: 6000,
-            },
-          );
-
-          break;
-        }
 
         case "INCOMING_AUDIO_CALL": {
           setRemoteUser(sseEvent.caller);
@@ -247,6 +205,55 @@ const CallManager = ({ children }) => {
           }
           endWebRTC();
           resetCallUI();
+          break;
+        }
+
+        // CallManager.jsx
+
+        // ... inside useEffect/switch watching sseEvent ...
+        case "NEW_MESSAGE": {
+          const message = sseEvent.message;
+          if (!message) break;
+
+          const sender = message.from_user_id;
+          const senderId = sender?._id || sender;
+
+          // 🟢 Check if current user is ALREADY inside this user's chatbox
+          const isCurrentlyInChat = location.pathname === `/messages/${senderId}`;
+
+          // If already chatting with this user, don't show toast popup
+          if (isCurrentlyInChat) break;
+
+          // Otherwise, show instant toast notification
+          toast(
+            (t) => (
+              <div className="flex items-center gap-3">
+                <img
+                  src={sender?.profile_picture || "https://via.placeholder.com/40"}
+                  alt={sender?.full_name}
+                  className="w-10 h-10 rounded-full object-cover"
+                />
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-gray-900">
+                    {sender?.full_name || "New Message"}
+                  </p>
+                  <p className="text-xs text-gray-500 truncate max-w-[180px]">
+                    {message.text || "Sent an image"}
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    navigate(`/messages/${senderId}`);
+                    toast.dismiss(t.id);
+                  }}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 py-1.5 rounded-lg font-medium transition"
+                >
+                  View
+                </button>
+              </div>
+            ),
+            { duration: 4000 }
+          );
           break;
         }
 
