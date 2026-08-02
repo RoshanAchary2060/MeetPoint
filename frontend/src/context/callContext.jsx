@@ -1,11 +1,9 @@
 import { createContext, useContext, useRef, useState } from "react";
 
 const CallContext = createContext();
+export const useCall = () => useContext(CallContext);
 
 export const CallProvider = ({ children }) => {
-  const peerConnection = useRef(null);
-  const localStream = useRef(null);
-
   const [callState, setCallState] = useState("idle");
   /*
     idle
@@ -15,77 +13,54 @@ export const CallProvider = ({ children }) => {
     connected
     ended
   */
-
   const [remoteUser, setRemoteUser] = useState(null);
+  const [remoteStream, setRemoteStream] = useState(null);
 
-  const createPeerConnection = () => {
-    const pc = new RTCPeerConnection({
-      iceServers: [
-        {
-          urls: ["stun:stun.l.google.com:19302"],
-        },
-      ],
-    });
+  // Guards against duplicate offer/answer creation (fixes "Unknown ufrag" errors)
+  const negotiationStarted = useRef(false);
 
-    pc.onicecandidate = (event) => {
-      if (event.candidate) {
-        console.log("Sending ICE Candidate", event.candidate);
-      }
-    };
-
-    pc.ontrack = (event) => {
-      const audio = new Audio();
-      audio.srcObject = event.streams[0];
-      audio.play();
-    };
-
-    peerConnection.current = pc;
-    return pc;
+  const startNegotiation = () => {
+    negotiationStarted.current = true;
   };
 
-  const startLocalAudio = async () => {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      audio: true,
-    });
+  const isNegotiationStarted = () => negotiationStarted.current;
 
-    localStream.current = stream;
+  const resetNegotiationLock = () => {
+    negotiationStarted.current = false;
+  };
 
-    if (peerConnection.current) {
-      stream.getTracks().forEach((track) => {
-        peerConnection.current.addTrack(track, stream);
-      });
-    }
+  // The real WebRTC controls (createOffer, createAnswer, endCall, etc.)
+  // get registered here by CallManager, so every component shares the SAME connection.
+  const webrtcControlsRef = useRef({
+    endCall: () => {},
+    toggleMute: () => {},
+  });
+
+  const registerWebRTCControls = (controls) => {
+    webrtcControlsRef.current = controls;
   };
 
   const endCall = () => {
-    if (peerConnection.current) {
-      peerConnection.current.close();
-      peerConnection.current = null;
-    }
-
-    if (localStream.current) {
-      localStream.current.getTracks().forEach((track) => track.stop());
-      localStream.current = null;
-    }
-
+    webrtcControlsRef.current.endCall();
+    negotiationStarted.current = false;
     setRemoteUser(null);
+    setRemoteStream(null);
     setCallState("idle");
   };
 
   return (
     <CallContext.Provider
       value={{
-        peerConnection,
-        localStream,
-
         callState,
         setCallState,
-
         remoteUser,
         setRemoteUser,
-
-        createPeerConnection,
-        startLocalAudio,
+        remoteStream,
+        setRemoteStream,
+        startNegotiation,
+        isNegotiationStarted,
+        resetNegotiationLock,
+        registerWebRTCControls,
         endCall,
       }}
     >
@@ -93,5 +68,3 @@ export const CallProvider = ({ children }) => {
     </CallContext.Provider>
   );
 };
-
-export const useCall = () => useContext(CallContext);

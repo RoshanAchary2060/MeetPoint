@@ -19,11 +19,15 @@ const CallManager = ({ children }) => {
   const location = useLocation();
   const { getToken } = useAuth();
   const sseEvent = useSelector((state) => state.sse.event);
+
   const {
     callState,
     setCallState,
     setRemoteUser,
     remoteUser,
+    startNegotiation,
+    isNegotiationStarted,
+    registerWebRTCControls,
     endCall: resetCallUI,
   } = useCall();
 
@@ -48,6 +52,10 @@ const CallManager = ({ children }) => {
       console.error(`Signaling error on /${endpoint}:`, err);
     }
   };
+
+  useEffect(() => {
+    registerWebRTCControls({ endCall: endWebRTC, toggleMute });
+  }, [endWebRTC, toggleMute]);
 
   useEffect(() => {
     if (!sseEvent) return;
@@ -168,54 +176,34 @@ const CallManager = ({ children }) => {
         }
 
         case "CALL_ACCEPTED": {
-          console.log("===== CALL_ACCEPTED =====");
+          if (isNegotiationStarted()) {
+            console.log("Ignoring duplicate CALL_ACCEPTED");
+            break;
+          }
+          startNegotiation();
 
           setCallState("connected");
-          console.log("REMOTE USER", remoteUser);
-          console.log("TARGET USER", targetUserId);
           const offer = await createOffer((candidate) => {
-            sendSignaling("ice-candidate", {
-              to_user_id: targetUserId,
-              candidate,
-            });
+            sendSignaling("ice-candidate", { to_user_id: targetUserId, candidate });
           });
-
-          console.log("Offer created");
-
-          await sendSignaling("offer", {
-            to_user_id: targetUserId,
-            offer,
-          });
-
-          console.log("Offer sent");
-
+          await sendSignaling("offer", { to_user_id: targetUserId, offer });
           break;
         }
 
         case "WEBRTC_OFFER": {
-          console.log("===== WEBRTC_OFFER =====");
+          if (isNegotiationStarted()) {
+            console.log("Ignoring duplicate WEBRTC_OFFER");
+            break;
+          }
+          startNegotiation();
 
           setCallState("connected");
-
           const answer = await createAnswer(sseEvent.offer, (candidate) => {
-            sendSignaling("ice-candidate", {
-              to_user_id: targetUserId,
-              candidate,
-            });
+            sendSignaling("ice-candidate", { to_user_id: targetUserId, candidate });
           });
-
-          console.log("Answer created");
-
-          await sendSignaling("answer", {
-            to_user_id: targetUserId,
-            answer,
-          });
-
-          console.log("Answer sent");
-
+          await sendSignaling("answer", { to_user_id: targetUserId, answer });
           break;
         }
-
         case "WEBRTC_ANSWER": {
           await setRemoteAnswer(sseEvent.answer);
           break;
@@ -231,14 +219,10 @@ const CallManager = ({ children }) => {
         case "CALL_ENDED":
         case "CALL_RECEIVER_OFFLINE": {
           if (targetUserId) {
-            await sendSignaling("end", {
-              to_user_id: targetUserId,
-            });
+            await sendSignaling("end", { to_user_id: targetUserId });
           }
-
           endWebRTC();
           resetCallUI();
-
           break;
         }
 
@@ -264,7 +248,7 @@ const CallManager = ({ children }) => {
       ) : null}
       {callState === "incoming" ? <IncomingCallModal /> : null}
       {callState === "connected" ? (
-        <ActiveCall onEndWebRTC={endWebRTC} toggleMute={toggleMute} />
+        <ActiveCall toggleMute={toggleMute} />
       ) : null}
     </>
   );

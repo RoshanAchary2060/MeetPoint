@@ -4,26 +4,23 @@ import toast from "react-hot-toast";
 import { useCall } from "../context/callContext.jsx";
 
 const IncomingCallModal = () => {
-  const { callState, remoteUser, setCallState } = useCall();
+  const { callState, remoteUser, setCallState, endCall } = useCall();
   const { getToken } = useAuth();
 
   if (callState !== "incoming") {
     return null;
   }
 
-  // Get exact ID regardless of whether it's .id or ._id
   const callerId = remoteUser?.id || remoteUser?._id;
 
   const acceptCall = async () => {
     try {
       const token = await getToken();
-
       await api.post(
         "/api/call/accept",
         { from_user_id: callerId },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-
       setCallState("connected");
     } catch (error) {
       console.error(error);
@@ -34,14 +31,12 @@ const IncomingCallModal = () => {
   const rejectCall = async () => {
     try {
       const token = await getToken();
-
       await api.post(
         "/api/call/reject",
         { from_user_id: callerId },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-
-      setCallState("ended");
+      endCall();
     } catch (error) {
       console.error(error);
       toast.error("Failed to reject call");
@@ -52,24 +47,13 @@ const IncomingCallModal = () => {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
       <div className="w-96 rounded-3xl bg-white shadow-2xl p-8 text-center">
         <img
-          src={
-            remoteUser?.profile_picture ||
-            "https://placehold.co/120x120?text=User"
-          }
+          src={remoteUser?.profile_picture || "https://placehold.co/120x120?text=User"}
           alt={remoteUser?.full_name}
           className="w-28 h-28 rounded-full object-cover mx-auto border-4 border-indigo-500 shadow-lg"
         />
-
-        <h2 className="mt-5 text-2xl font-bold text-gray-800">
-          {remoteUser?.full_name}
-        </h2>
-
+        <h2 className="mt-5 text-2xl font-bold text-gray-800">{remoteUser?.full_name}</h2>
         <p className="text-gray-500 mt-1">@{remoteUser?.username}</p>
-
-        <p className="text-indigo-600 font-medium mt-5">
-          📞 Incoming Audio Call
-        </p>
-
+        <p className="text-indigo-600 font-medium mt-5">📞 Incoming Audio Call</p>
         <div className="flex gap-4 mt-8">
           <button
             onClick={rejectCall}
@@ -77,7 +61,6 @@ const IncomingCallModal = () => {
           >
             Decline
           </button>
-
           <button
             onClick={acceptCall}
             className="flex-1 rounded-xl bg-green-500 py-3 text-white font-semibold hover:bg-green-600 transition active:scale-95"
