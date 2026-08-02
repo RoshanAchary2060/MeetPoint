@@ -13,10 +13,10 @@
   "license": "ISC",
   "dependencies": {
     "@clerk/express": "^2.1.43",
+    "@imagekit/nodejs": "^7.10.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
-    "imagekit": "^1.5.0",
     "inngest": "^4.13.0",
     "mongoose": "^9.7.4",
     "multer": "^2.2.0",
