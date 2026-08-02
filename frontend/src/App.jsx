@@ -10,7 +10,7 @@ import Profile from "./pages/Profile";
 import CreatePost from "./pages/CreatePost";
 import Layout from "./pages/Layout";
 import CallManager from "./components/CallManager";
-import Pusher from "../../backend/utils/pusher.js";
+import Pusher from "pusher-js";
 
 import { useUser, useAuth } from "@clerk/clerk-react";
 import { Toaster } from "react-hot-toast";
@@ -69,7 +69,8 @@ const App = () => {
 
       channel.bind("app-event", (data) => {
         if (data.type === "NEW_MESSAGE") {
-          const senderId = data.message.from_user_id?._id || data.message.from_user_id;
+          const senderId =
+            data.message.from_user_id?._id || data.message.from_user_id;
           if (pathnameRef.current === `/messages/${senderId}`) {
             dispatch(addMessages(data.message));
           } else {
@@ -95,7 +96,9 @@ const App = () => {
       if (channel) channel.unbind_all();
       if (pusherClient) pusherClient.disconnect();
     };
-  }, [user, dispatch]);  return (
+  }, [user, dispatch]);
+
+  return (
     <CallManager>
       <Toaster />
       {/* <Routes>
@@ -128,8 +131,6 @@ const App = () => {
           <Route path="/create-post" element={<CreatePost />} />
         </Route>
       </Routes>
-
-
     </CallManager>
   );
 };
