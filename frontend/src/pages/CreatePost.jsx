@@ -18,42 +18,48 @@ const CreatePost = () => {
   const {getToken} = useAuth()
 
   const handleSubmit = async () => {
-    if (!images.length && !content) {
-      return toast.error('Please add at least one image or text')
-    }
-    setLoading(true)
-    const postType = images.length && content ? 'text_with_image' :
-      images.length ? 'image' : 'text'
-    try {
-      const formData = new FormData()
-      formData.append('content', content)
-      formData.append('post_type', postType)
-      images.map((image) => {
-        formData.append('images', image)
-      })
-      const { data } = await api.post(
-        '/api/post/add', formData,
-        {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-            Authorization: `Bearer ${await getToken()}`,
-          }
-        }
-      )
-      if (data.success) {
-        navigate('/')
-      } else {
-        console.log(data.message)
-        throw new Error(data.message)
+      if (!images.length && !content) {
+        // 🟢 Fix: throw an error so toast.promise catches it properly
+        throw new Error('Please add at least one image or text');
       }
 
-    } catch (error) {
-      console.log(error)
-      throw new Error(error.message)
-    }
-    setLoading(false)
-  }
+      setLoading(true);
+      const postType = images.length && content ? 'text_with_image' :
+        images.length ? 'image' : 'text';
 
+      try {
+        const formData = new FormData();
+        formData.append('content', content);
+        formData.append('post_type', postType);
+        images.map((image) => {
+          formData.append('images', image);
+        });
+
+        const { data } = await api.post(
+          '/api/post/add', formData,
+          {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+              Authorization: `Bearer ${await getToken()}`,
+            }
+          }
+        );
+
+        if (data.success) {
+          navigate('/');
+        } else {
+          console.log(data.message);
+          throw new Error(data.message);
+        }
+
+      } catch (error) {
+        console.log(error);
+        // 🟢 Fix: Ensure the error message bubbles up to toast.promise
+        throw new Error(error.message || "Failed to add post");
+      } finally {
+        setLoading(false);
+      }
+    };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">

@@ -42,7 +42,7 @@ const UserProfileInfo = ({ user, posts, profileId, setShowEdit }) => {
                     text-gray-500 mt-4'>
                         <span className='flex items-center gap-1.5'>
                             <MapPin className='w-4 h-4' />
-                            {user.location ? user.location : 'Add location'}
+                            {user.location ? user.location : 'Location not specified'}
                         </span>
                         <span className='flex items-center gap-1.5'>
                             <Calendar className='h-4 w-4' />

@@ -198,6 +198,9 @@ const CallManager = ({ children }) => {
           break;
         }
         case "CALL_RECEIVER_OFFLINE": {
+          // 🟢 Show instant feedback to the caller
+          toast.error(`${remoteUser?.full_name || "User"} is currently offline`);
+
           if (targetUserId) {
             socket.emit("end-call", {
               receiverId: targetUserId,

@@ -77,42 +77,27 @@ export const updateUserData = async (req, res) => {
 
     // Upload Profile Picture
     if (profileFile) {
-      console.log(profileFile);
-      // const buffer = fs.readFileSync(profileFile.path);
-      const buffer = profileFile.buffer;
-      const profileUpload = await imagekit.upload({
-        file: buffer,
-        fileName: profileFile.originalname,
-      });
+          const buffer = profileFile.buffer;
+          const base64File = buffer.toString("base64");
+          const profileUpload = await imagekit.files.upload({
+            file: base64File,
+            fileName: profileFile.originalname,
+          });
 
-      updatedData.profile_picture = imagekit.url({
-        path: profileUpload.filePath,
-        transformation: [
-          { quality: "auto" },
-          { format: "webp" },
-          { width: "512" },
-        ],
-      });
-    }
+          updatedData.profile_picture = profileUpload.url;
+        }
 
-    // Upload Cover Photo
-    if (coverFile) {
-      // const buffer = fs.readFileSync(coverFile.path);
-      const buffer = coverFile.buffer;
-      const coverUpload = await imagekit.upload({
-        file: buffer,
-        fileName: coverFile.originalname,
-      });
+        // Upload Cover Photo
+        if (coverFile) {
+          const buffer = coverFile.buffer;
+          const base64File = buffer.toString("base64");
+          const coverUpload = await imagekit.files.upload({
+            file: base64File,
+            fileName: coverFile.originalname,
+          });
 
-      updatedData.cover_photo = imagekit.url({
-        path: coverUpload.filePath,
-        transformation: [
-          { quality: "auto" },
-          { format: "webp" },
-          { width: "1280" },
-        ],
-      });
-    }
+          updatedData.cover_photo = coverUpload.url;
+        }
 
     const updatedUser = await User.findByIdAndUpdate(userId, updatedData, {
       new: true,

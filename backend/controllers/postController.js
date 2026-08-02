@@ -4,36 +4,47 @@ import Post from "../models/Post.js";
 import User from "../models/User.js";
 import Comment from "../models/Comment.js";
 import { sendEventToUser, sendEventToAll } from "../utils/sse.js";
+import { io } from "../socket/socketHandler.js";
 
 //  ADD POST
+
 export const addPost = async (req, res) => {
   try {
     const { userId } = req.auth();
     const { content, post_type } = req.body;
     const images = req.files || [];
     let image_urls = [];
+
     if (images.length) {
       image_urls = await Promise.all(
         images.map(async (image) => {
-          // const fileBuffer = fs.readFileSync(image.path);
-          const fileBuffer = image.buffer;
-          const response = await imagekit.upload({
-            file: fileBuffer,
-            fileName: image.originalname,
+          // 🟢 Convert buffer to Base64 string for @imagekit/nodejs
+          const base64File = image.buffer.toString("base64");
+
+          const response = await imagekit.files.upload({
+            file: base64File, // 👈 Pass Base64 string here
+            fileName: image.originalname || `post_${Date.now()}.jpg`,
             folder: "posts",
           });
-          const url = imagekit.url({
-            path: response.filePath,
-            transformation: [
-              { quality: "auto" },
-              { format: "webp" },
-              { width: "1280" },
-            ],
-          });
+
+          // 🟢 Build transformed URL or use response.url directly
+          // Option A: If you want transformations
+          const url = imagekit.url
+            ? imagekit.url({
+                path: response.filePath,
+                transformation: [
+                  { quality: "auto" },
+                  { format: "webp" },
+                  { width: "1280" },
+                ],
+              })
+            : response.url;
+
           return url;
-        }),
+        })
       );
     }
+
     const post = await Post.create({
       user: userId,
       content,
@@ -44,11 +55,13 @@ export const addPost = async (req, res) => {
     // Populate user before sending
     const populatedPost = await Post.findById(post._id).populate("user");
 
-    sendEventToAll({
-      type: "POST_CREATED",
-      data: populatedPost,
-      senderId: userId,
-    });
+    // sendEventToAll({
+    //   type: "POST_CREATED",
+    //   data: populatedPost,
+    //   senderId: userId,
+    // });
+
+    io.emit("POST_CREATED", populatedPost);
 
     res.json({
       success: true,
@@ -59,24 +72,43 @@ export const addPost = async (req, res) => {
     res.json({ success: false, message: error.message });
   }
 };
-
 // GET POSTS
 export const getFeedPosts = async (req, res) => {
   try {
     const { userId } = req.auth();
-    const user = await User.findById(userId);
-    // USER CONNECTIONS AND FOLLOWINGS
-    const userIds = [userId, ...user.following, ...user.connections];
+    const user = await User.findById(userId).select("following connections");
+
+    if (!user) {
+      return res.json({ success: false, message: "User not found" });
+    }
+
+    // 🟢 Deduplicate user IDs & handle null checks safely
+    const following = user.following || [];
+    const connections = user.connections || [];
+    const userIds = Array.from(new Set([userId, ...following, ...connections]));
+
+    // 🟢 Support pagination (default page 1, 10 posts per page)
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
     const posts = await Post.find({ user: { $in: userIds } })
-      .populate("user")
-      .sort({ createdAt: -1 });
-    res.json({ success: true, posts });
+      .populate("user", "full_name username profile_picture") // populate only required fields
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    res.json({
+      success: true,
+      posts,
+      page,
+      hasMore: posts.length === limit
+    });
   } catch (error) {
-    console.log(error);
+    console.error("Get feed error:", error);
     res.json({ success: false, message: error.message });
   }
 };
-
 // LIKE POSTS
 export const likePost = async (req, res) => {
   try {

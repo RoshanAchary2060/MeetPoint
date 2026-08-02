@@ -119,37 +119,37 @@ const Chatbox = () => {
 
   if (!user) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <p className="text-gray-500">Loading user...</p>
+      <div className="flex items-center justify-center h-screen bg-slate-50">
+        <p className="text-gray-500 font-medium">Loading user...</p>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-screen">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-2 p-2 md:px-10 xl:pl-42 bg-gradient-to-r from-indigo-50 border-b border-gray-300">
-        <div className="flex items-center gap-2">
+    <div className="flex flex-col h-screen w-full bg-slate-50">
+      {/* 🟢 Improved Header Layout */}
+      <div className="flex items-center justify-between px-6 py-3 bg-white border-b border-gray-200 shadow-sm z-10">
+        <div className="flex items-center gap-3">
           <img
             src={user.profile_picture}
-            className="size-8 rounded-full"
-            alt=""
+            className="w-10 h-10 rounded-full object-cover border border-gray-200"
+            alt={user.full_name}
           />
-          <div>
-            <p className="font-medium">{user.full_name}</p>
-            <p className="text-sm text-gray-500 -mt-1.5">@{user.username}</p>
+          <div className="flex flex-col">
+            <h2 className="font-semibold text-slate-800 leading-snug">{user.full_name}</h2>
+            <p className="text-xs text-gray-500">@{user.username}</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1">
           <button
             onClick={startAudioCall}
-            className="p-2 rounded-full hover:bg-indigo-100 transition"
+            className="p-2.5 rounded-full hover:bg-indigo-50 text-indigo-600 transition active:scale-95"
             title="Audio Call"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              className="w-5 h-5 text-indigo-600"
+              className="w-5 h-5"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -165,12 +165,12 @@ const Chatbox = () => {
 
           <button
             onClick={() => console.log("Video call clicked")}
-            className="p-2 rounded-full hover:bg-indigo-100 transition"
+            className="p-2.5 rounded-full hover:bg-indigo-50 text-indigo-600 transition active:scale-95"
             title="Video Call"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              className="w-5 h-5 text-indigo-600"
+              className="w-5 h-5"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -186,14 +186,13 @@ const Chatbox = () => {
         </div>
       </div>
 
-      {/* Messages */}
-      <div className="p-5 md:px-10 h-full overflow-y-scroll">
-        <div className="space-y-4 max-w-4xl mx-auto">
+      {/* 🟢 Improved Messages Container & Proper Left/Right Alignment */}
+      <div className="flex-1 p-4 md:p-6 overflow-y-auto">
+        <div className="flex flex-col space-y-3 w-full max-w-5xl mx-auto">
           {messages && messages.length > 0 ? (
             [...messages]
               .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
               .map((message) => {
-                // Check if message is from current user
                 const isFromCurrentUser =
                   message.from_user_id?._id === currentUser?._id ||
                   message.from_user_id === currentUser?._id;
@@ -201,53 +200,61 @@ const Chatbox = () => {
                 return (
                   <div
                     key={message._id}
-                    className={`flex flex-col ${isFromCurrentUser ? "items-end" : "items-start"}`}
+                    className={`flex w-full ${
+                      isFromCurrentUser ? "justify-end" : "justify-start"
+                    }`}
                   >
                     <div
-                      className={`p-3 text-sm max-w-sm bg-white text-slate-700 rounded-lg shadow ${
+                      className={`p-3.5 text-sm max-w-[75%] md:max-w-[60%] shadow-sm ${
                         isFromCurrentUser
-                          ? "rounded-br-none"
-                          : "rounded-bl-none"
+                          ? "bg-indigo-600 text-white rounded-2xl rounded-tr-none"
+                          : "bg-white text-slate-800 rounded-2xl rounded-tl-none border border-gray-100"
                       }`}
                     >
                       {message.message_type === "image" && (
                         <img
                           src={message.media_url}
-                          className="w-full max-w-sm rounded-lg mb-1"
-                          alt=""
+                          className="w-full max-h-80 object-cover rounded-lg mb-2"
+                          alt="Attachment"
                         />
                       )}
-                      <p className="break-words">{message.text}</p>
+                      {message.text && (
+                        <p className="break-words leading-relaxed whitespace-pre-wrap">
+                          {message.text}
+                        </p>
+                      )}
                     </div>
                   </div>
                 );
               })
           ) : (
-            <div className="text-center text-gray-500 py-20">
-              <p>No messages yet</p>
-              <p className="text-sm">Say hello to {user.full_name}</p>
+            <div className="flex flex-col items-center justify-center text-gray-400 py-30">
+              <p className="font-medium text-base">No messages yet</p>
+              <p className="text-xs text-gray-400 mt-1">
+                Say hello to {user.full_name}!
+              </p>
             </div>
           )}
           <div ref={messagesEndRef} />
         </div>
       </div>
 
-      {/* Input */}
-      <div className="px-4">
-        <div className="flex items-center gap-3 pl-5 p-1.5 bg-white w-full max-x-xl mx-auto border border-gray-200 shadow rounded-full mb-5">
+      {/* 🟢 Improved Bottom Input Bar */}
+      <div className="p-4 bg-white border-t border-gray-200">
+        <div className="flex items-center gap-3 px-4 py-2 bg-slate-100 w-full max-w-5xl mx-auto rounded-full border border-gray-200 focus-within:border-indigo-400 focus-within:bg-white transition-all">
           <input
             type="text"
-            className="flex-1 outline-none text-slate-700 py-2"
+            className="flex-1 outline-none text-slate-800 text-sm bg-transparent px-1"
             placeholder="Type a message..."
             onKeyDown={(e) => e.key === "Enter" && sendMessage()}
             onChange={(e) => setText(e.target.value)}
             value={text}
           />
-          <label htmlFor="image" className="cursor-pointer">
+          <label htmlFor="image" className="cursor-pointer p-1 hover:opacity-80 transition">
             {image ? (
-              <img src={URL.createObjectURL(image)} className="h-8 rounded" />
+              <img src={URL.createObjectURL(image)} className="h-7 w-7 object-cover rounded-md" />
             ) : (
-              <ImageIcon className="size-7 text-gray-400" />
+              <ImageIcon className="w-5 h-5 text-gray-400 hover:text-indigo-600 transition" />
             )}
             <input
               type="file"
@@ -259,9 +266,9 @@ const Chatbox = () => {
           </label>
           <button
             onClick={sendMessage}
-            className="bg-gradient-to-br from-indigo-500 to-purple-600 hover:from-indigo-700 hover:to-purple-800 active:scale-95 cursor-pointer text-white p-2 rounded-full"
+            className="bg-indigo-600 hover:bg-indigo-700 active:scale-95 transition cursor-pointer text-white p-2 rounded-full shadow-sm"
           >
-            <SendHorizonal size={18} />
+            <SendHorizonal size={16} />
           </button>
         </div>
       </div>
