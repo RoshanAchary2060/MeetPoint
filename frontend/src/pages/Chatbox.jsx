@@ -11,6 +11,7 @@ import {
 } from "../features/messages/messagesSlice.js";
 import toast from "react-hot-toast";
 import { useCall } from "../context/callContext";
+import socket from "../socket/socket";
 
 const Chatbox = () => {
   const { messages } = useSelector((state) => state.messages);
@@ -77,7 +78,9 @@ const Chatbox = () => {
 
   useEffect(() => {
     if (connections.length > 0) {
-      const foundUser = connections.find((connection) => connection._id === userId);
+      const foundUser = connections.find(
+        (connection) => connection._id === userId,
+      );
       setUser(foundUser);
     }
   }, [connections, userId]);
@@ -99,16 +102,16 @@ const Chatbox = () => {
 
       setCallState("calling");
 
-      await api.post(
-        "/api/call/audio",
-        { to_user_id: userId },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+      socket.emit("call-user", {
+        callerId: currentUser._id,
+        receiverId: userId,
+        caller: {
+          id: currentUser._id,
+          full_name: currentUser.full_name,
+          username: currentUser.username,
+          profile_picture: currentUser.profile_picture,
         },
-      );
-
+      });
     } catch (error) {
       toast.error(error.message || "Failed to start call");
     }
@@ -202,7 +205,9 @@ const Chatbox = () => {
                   >
                     <div
                       className={`p-3 text-sm max-w-sm bg-white text-slate-700 rounded-lg shadow ${
-                        isFromCurrentUser ? "rounded-br-none" : "rounded-bl-none"
+                        isFromCurrentUser
+                          ? "rounded-br-none"
+                          : "rounded-bl-none"
                       }`}
                     >
                       {message.message_type === "image" && (

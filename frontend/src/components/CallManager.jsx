@@ -13,6 +13,7 @@ import { fetchUser } from "../features/user/usersSlice.js";
 import toast from "react-hot-toast";
 import { addMessages } from "../features/messages/messagesSlice.js"; // ← ADD THIS
 import { useNavigate, useLocation } from "react-router-dom";
+import socket from "../socket/socket.js";
 const CallManager = ({ children }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -186,8 +187,10 @@ const CallManager = ({ children }) => {
           const offer = await createOffer((candidate) => {
             sendSignaling("ice-candidate", { to_user_id: targetUserId, candidate });
           });
-          await sendSignaling("offer", { to_user_id: targetUserId, offer });
-          break;
+          socket.emit("webrtc-offer", {
+            receiverId: targetUserId,
+            offer,
+          });          break;
         }
 
         case "WEBRTC_OFFER": {
@@ -199,10 +202,14 @@ const CallManager = ({ children }) => {
 
           setCallState("connected");
           const answer = await createAnswer(sseEvent.offer, (candidate) => {
-            sendSignaling("ice-candidate", { to_user_id: targetUserId, candidate });
-          });
-          await sendSignaling("answer", { to_user_id: targetUserId, answer });
-          break;
+            socket.emit("ice-candidate", {
+              receiverId: targetUserId,
+              candidate,
+            });          });
+          socket.emit("webrtc-answer", {
+            receiverId: targetUserId,
+            answer,
+          });          break;
         }
         case "WEBRTC_ANSWER": {
           await setRemoteAnswer(sseEvent.answer);
@@ -219,8 +226,9 @@ const CallManager = ({ children }) => {
         case "CALL_ENDED":
         case "CALL_RECEIVER_OFFLINE": {
           if (targetUserId) {
-            await sendSignaling("end", { to_user_id: targetUserId });
-          }
+            socket.emit("end-call", {
+              receiverId: targetUserId,
+            });          }
           endWebRTC();
           resetCallUI();
           break;
