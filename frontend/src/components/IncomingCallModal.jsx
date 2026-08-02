@@ -12,10 +12,13 @@ const IncomingCallModal = () => {
   const callerId = remoteUser?.id || remoteUser?._id;
 
   const acceptCall = () => {
-    socket.emit("accept-call", {
-      callerId,
-    });
+    if (!callerId) {
+      toast.error("Call no longer available");
+      endCall();
+      return;
+    }
 
+    socket.emit("accept-call", { callerId });
     setCallState("connected");
   };
   const rejectCall = () => {

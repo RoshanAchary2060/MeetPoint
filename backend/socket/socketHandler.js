@@ -81,6 +81,14 @@ export const initializeSocket = (httpServer) => {
       }
     });
 
+    socket.on("cancel-call", ({ receiverId }) => {
+      const receiverSocket = onlineUsers.get(receiverId);
+
+      if (receiverSocket) {
+        io.to(receiverSocket).emit("call-cancelled");
+      }
+    });
+
     // =========================
     // ACCEPT
     // =========================
@@ -157,11 +165,12 @@ export const initializeSocket = (httpServer) => {
     // DISCONNECT
     // =========================
     socket.on("disconnect", () => {
-      if (socket.userId) {
-        onlineUsers.delete(socket.userId);
-
-        console.log(`🔴 ${socket.userId} disconnected`);
-        console.log("Online Users:", onlineUsers.size);
+      for (const [userId, socketId] of onlineUsers.entries()) {
+        if (socketId === socket.id) {
+          onlineUsers.delete(userId);
+          console.log(`🔴 User ${userId} disconnected`);
+          break;
+        }
       }
     });
   });

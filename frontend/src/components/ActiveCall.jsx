@@ -1,12 +1,10 @@
 import { useState, useEffect } from "react";
 import { Mic, MicOff, PhoneOff } from "lucide-react";
-import { useAuth } from "@clerk/clerk-react";
 import { useCall } from "../context/callContext";
-import api from "../api/axios";
+import socket from "../socket/socket"; // 👈 1. IMPORT SOCKET
 
 const ActiveCall = ({ toggleMute }) => {
   const { callState, remoteUser, endCall } = useCall();
-  const { getToken } = useAuth();
   const [isMuted, setIsMuted] = useState(false);
   const [seconds, setSeconds] = useState(0);
 
@@ -20,19 +18,14 @@ const ActiveCall = ({ toggleMute }) => {
   if (callState !== "connected") return null;
   const remoteUserId = remoteUser?.id || remoteUser?._id;
 
-  const handleEndCall = async () => {
-    endCall(); // context handles WebRTC cleanup + UI reset together now
-
-    try {
-      const token = await getToken();
-      await api.post(
-        "/api/call/end",
-        { to_user_id: remoteUserId },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-    } catch (error) {
-      console.log("Backend call cleanup failed", error);
+  const handleEndCall = () => {
+    // 👈 2. EMIT SOCKET EVENT TO REMOTE USER
+    if (remoteUserId) {
+      socket.emit("end-call", { receiverId: remoteUserId });
     }
+
+    // 👈 3. LOCAL CLEANUP
+    endCall();
   };
 
   const handleToggleMute = () => {
@@ -58,6 +51,7 @@ const ActiveCall = ({ toggleMute }) => {
         <img
           src={remoteUser?.profile_picture}
           className="relative w-40 h-40 rounded-full object-cover border-[6px] border-white shadow-2xl"
+          alt={remoteUser?.full_name}
         />
       </div>
       <h1 className="z-10 mt-8 text-4xl text-white font-bold">{remoteUser?.full_name}</h1>

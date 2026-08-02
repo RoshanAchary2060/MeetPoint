@@ -16,7 +16,6 @@ import Layout from "./pages/Layout";
 import Post from "./pages/Post";
 
 import CallManager from "./components/CallManager";
-
 import socket from "./socket/socket";
 
 import { fetchUser } from "./features/user/usersSlice";
@@ -36,13 +35,11 @@ const App = () => {
     pathnameRef.current = location.pathname;
   }, [location.pathname]);
 
-  // Initial user data
+  // Initial user data fetching
   useEffect(() => {
     const fetchData = async () => {
       if (!user) return;
-
       const token = await getToken();
-
       dispatch(fetchUser(token));
       dispatch(fetchConnections(token));
     };
@@ -51,12 +48,20 @@ const App = () => {
   }, [user, getToken, dispatch]);
 
   // ==========================
-  // SOCKET.IO
+  // SOCKET.IO LIFECYCLE
   // ==========================
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      if (socket.connected) socket.disconnect();
+      return;
+    }
 
-    socket.connect();
+    // Connect & Register
+    if (!socket.connected) {
+      socket.connect();
+    } else {
+      socket.emit("register", user.id);
+    }
 
     const onConnect = () => {
       console.log("🟢 Socket Connected:", socket.id);
@@ -69,81 +74,57 @@ const App = () => {
           type: "INCOMING_AUDIO_CALL",
           from_user_id: data.callerId,
           caller: data.caller,
-        })
+        }),
       );
     };
 
     const onCallRinging = () => {
-      dispatch(
-        setSSEEvent({
-          type: "CALL_RINGING",
-        })
-      );
+      dispatch(setSSEEvent({ type: "CALL_RINGING" }));
     };
 
     const onCallAccepted = () => {
-      dispatch(
-        setSSEEvent({
-          type: "CALL_ACCEPTED",
-        })
-      );
+      dispatch(setSSEEvent({ type: "CALL_ACCEPTED" }));
     };
 
     const onCallRejected = () => {
-      dispatch(
-        setSSEEvent({
-          type: "CALL_REJECTED",
-        })
-      );
+      dispatch(setSSEEvent({ type: "CALL_REJECTED" }));
     };
 
     const onOffer = ({ offer }) => {
-      dispatch(
-        setSSEEvent({
-          type: "WEBRTC_OFFER",
-          offer,
-        })
-      );
+      dispatch(setSSEEvent({ type: "WEBRTC_OFFER", offer }));
     };
 
     const onAnswer = ({ answer }) => {
-      dispatch(
-        setSSEEvent({
-          type: "WEBRTC_ANSWER",
-          answer,
-        })
-      );
+      dispatch(setSSEEvent({ type: "WEBRTC_ANSWER", answer }));
     };
 
     const onIce = ({ candidate }) => {
-      dispatch(
-        setSSEEvent({
-          type: "WEBRTC_ICE_CANDIDATE",
-          candidate,
-        })
-      );
+      dispatch(setSSEEvent({ type: "WEBRTC_ICE_CANDIDATE", candidate }));
     };
 
     const onEnd = () => {
-      dispatch(
-        setSSEEvent({
-          type: "CALL_ENDED",
-        })
-      );
+      dispatch(setSSEEvent({ type: "CALL_ENDED" }));
     };
 
     const onOffline = () => {
-      dispatch(
-        setSSEEvent({
-          type: "CALL_RECEIVER_OFFLINE",
-        })
-      );
+      dispatch(setSSEEvent({ type: "CALL_RECEIVER_OFFLINE" }));
     };
 
+    // Attach listeners
     socket.on("connect", onConnect);
     socket.on("incoming-call", onIncomingCall);
     socket.on("call-ringing", onCallRinging);
     socket.on("call-accepted", onCallAccepted);
+    const onCallCancelled = () => {
+      dispatch(
+        setSSEEvent({
+          type: "CALL_CANCELLED",
+        }),
+      );
+    };
+
+    // Attach listener:
+    socket.on("call-cancelled", onCallCancelled);
     socket.on("call-rejected", onCallRejected);
     socket.on("webrtc-offer", onOffer);
     socket.on("webrtc-answer", onAnswer);
@@ -151,19 +132,27 @@ const App = () => {
     socket.on("call-ended", onEnd);
     socket.on("user-offline", onOffline);
 
+    // Cleanup listeners & disconnect socket on unmount/logout
     return () => {
       socket.off("connect", onConnect);
       socket.off("incoming-call", onIncomingCall);
       socket.off("call-ringing", onCallRinging);
       socket.off("call-accepted", onCallAccepted);
+      socket.off("call-cancelled", onCallCancelled);
       socket.off("call-rejected", onCallRejected);
       socket.off("webrtc-offer", onOffer);
       socket.off("webrtc-answer", onAnswer);
       socket.off("ice-candidate", onIce);
       socket.off("call-ended", onEnd);
       socket.off("user-offline", onOffline);
+
+      // Disconnect socket if user signs out
+      if (!user && socket.connected) {
+        socket.disconnect();
+      }
     };
-  }, [user]);
+  }, [user, dispatch]);
+
   return (
     <CallManager>
       <Toaster />

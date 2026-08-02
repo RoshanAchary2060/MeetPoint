@@ -54,6 +54,14 @@ const CallManager = ({ children }) => {
     }
   };
 
+  const handleEndCall = () => {
+    if (targetUserId) {
+      socket.emit("end-call", { receiverId: targetUserId });
+    }
+    endWebRTC(); // Stops media tracks & closes peer connection
+    resetCallUI(); // Resets call state to idle
+  };
+
   useEffect(() => {
     registerWebRTCControls({ endCall: endWebRTC, toggleMute });
   }, [endWebRTC, toggleMute]);
@@ -156,16 +164,13 @@ const CallManager = ({ children }) => {
 
           break;
         }
+
         case "INCOMING_AUDIO_CALL": {
           setRemoteUser(sseEvent.caller);
           setCallState("incoming");
 
-          const token = await getToken();
-          await api.post(
-            "/api/call/ringing",
-            { from_user_id: sseEvent.from_user_id },
-            { headers: { Authorization: `Bearer ${token}` } },
-          );
+          // Notify the caller that the receiver's phone is ringing
+          socket.emit("call-ringing", { callerId: sseEvent.from_user_id });
           break;
         }
 
@@ -185,12 +190,16 @@ const CallManager = ({ children }) => {
 
           setCallState("connected");
           const offer = await createOffer((candidate) => {
-            sendSignaling("ice-candidate", { to_user_id: targetUserId, candidate });
+            socket.emit("ice-candidate", {
+              receiverId: targetUserId,
+              candidate,
+            });
           });
           socket.emit("webrtc-offer", {
             receiverId: targetUserId,
             offer,
-          });          break;
+          });
+          break;
         }
 
         case "WEBRTC_OFFER": {
@@ -205,11 +214,13 @@ const CallManager = ({ children }) => {
             socket.emit("ice-candidate", {
               receiverId: targetUserId,
               candidate,
-            });          });
+            });
+          });
           socket.emit("webrtc-answer", {
             receiverId: targetUserId,
             answer,
-          });          break;
+          });
+          break;
         }
         case "WEBRTC_ANSWER": {
           await setRemoteAnswer(sseEvent.answer);
@@ -223,12 +234,17 @@ const CallManager = ({ children }) => {
 
         case "CALL_REJECTED":
         case "CALL_CANCELLED":
-        case "CALL_ENDED":
+        case "CALL_ENDED": {
+          endWebRTC();
+          resetCallUI();
+          break;
+        }
         case "CALL_RECEIVER_OFFLINE": {
           if (targetUserId) {
             socket.emit("end-call", {
               receiverId: targetUserId,
-            });          }
+            });
+          }
           endWebRTC();
           resetCallUI();
           break;
