@@ -7,6 +7,21 @@ const servers = {
     {
       urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"],
     },
+    {
+      urls: "turn:openrelay.metered.ca:80",
+      username: "openrelayproject",
+      credential: "openrelayproject",
+    },
+    {
+      urls: "turn:openrelay.metered.ca:443",
+      username: "openrelayproject",
+      credential: "openrelayproject",
+    },
+    {
+      urls: "turn:openrelay.metered.ca:443?transport=tcp",
+      username: "openrelayproject",
+      credential: "openrelayproject",
+    },
   ],
 };
 
@@ -17,7 +32,6 @@ const useWebRTC = () => {
   const iceCandidatesQueue = useRef([]);
   const [isCallActive, setIsCallActive] = useState(false);
 
-  // ✅ TOP LEVEL HOOK CALL: Put this here!
   const { setCallState, setRemoteStream } = useCall();
 
   const cleanup = useCallback(() => {
@@ -39,22 +53,6 @@ const useWebRTC = () => {
     iceCandidatesQueue.current = [];
     setIsCallActive(false);
   }, []);
-
-  // const startLocalStream = async () => {
-  //   try {
-  //     if (!localStream.current) {
-  //       const stream = await navigator.mediaDevices.getUserMedia({
-  //         audio: true,
-  //         video: false,
-  //       });
-  //       localStream.current = stream;
-  //     }
-  //     return localStream.current;
-  //   } catch (error) {
-  //     console.error("Error accessing microphone:", error);
-  //     throw error;
-  //   }
-  // };
 
   const startLocalStream = async () => {
     try {
@@ -87,32 +85,7 @@ const useWebRTC = () => {
         cleanup();
       }
 
-      // ❌ DO NOT call useCall() in here! It is already initialized at the top level.
-
       const pc = new RTCPeerConnection(servers);
-
-      // if (localStream.current) {
-      //   localStream.current.getTracks().forEach((track) => {
-      //     pc.addTrack(track, localStream.current);
-      //   });
-      // }
-
-      // pc.ontrack = (event) => {
-      //   console.log(event.streams[0]);
-      //   console.log(event.streams[0].getTracks());
-      //   console.log(event.streams[0].getAudioTracks());
-      //   if (event.streams && event.streams[0]) {
-      //     if (setRemoteStream) {
-      //       setRemoteStream(event.streams[0]);
-      //     }
-
-      //     if (!remoteAudioRef.current) {
-      //       remoteAudioRef.current = new Audio();
-      //       remoteAudioRef.current.autoplay = true;
-      //     }
-      //     remoteAudioRef.current.srcObject = event.streams[0];
-      //   }
-      // };
 
       pc.ontrack = (event) => {
         console.log("========== REMOTE TRACK RECEIVED ==========");
@@ -128,24 +101,20 @@ const useWebRTC = () => {
         console.log("Tracks:", remoteStream.getTracks());
         console.log("Audio Tracks:", remoteStream.getAudioTracks());
 
-        // Save stream in context (optional, for UI)
         if (setRemoteStream) {
           setRemoteStream(remoteStream);
         }
 
-        // Create audio element once
         if (!remoteAudioRef.current) {
           remoteAudioRef.current = new Audio();
           remoteAudioRef.current.autoplay = true;
           remoteAudioRef.current.playsInline = true;
         }
 
-        // Prevent assigning the same stream repeatedly
         if (remoteAudioRef.current.srcObject !== remoteStream) {
           remoteAudioRef.current.srcObject = remoteStream;
         }
 
-        // Force playback (important for Firefox)
         remoteAudioRef.current
           .play()
           .then(() => {
@@ -157,6 +126,7 @@ const useWebRTC = () => {
 
         console.log("===========================================");
       };
+
       localStream.current.getTracks().forEach((track) => {
         console.log("Adding Track:", track.kind, track.enabled);
         pc.addTrack(track, localStream.current);
@@ -188,35 +158,19 @@ const useWebRTC = () => {
     [cleanup, setCallState, setRemoteStream],
   );
 
-  // const createOffer = async (onIceCandidate) => {
-  //   await startLocalStream();
-  //   const pc = createPeerConnection(onIceCandidate);
-
-  //   const offer = await pc.createOffer();
-  //   await pc.setLocalDescription(offer);
-  //   setIsCallActive(true);
-  //   return offer;
-  // };
-
   const createOffer = async (onIceCandidate) => {
     console.log("1. Before startLocalStream");
-
     await startLocalStream();
-
     console.log("2. After startLocalStream");
 
     const pc = createPeerConnection(onIceCandidate);
 
     console.log("3. Before createOffer");
-
     const offer = await pc.createOffer();
-
     console.log("4. After createOffer");
 
     console.log("5. Before setLocalDescription");
-
     await pc.setLocalDescription(offer);
-
     console.log("6. After setLocalDescription");
 
     return offer;

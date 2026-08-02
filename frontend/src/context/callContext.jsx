@@ -18,13 +18,10 @@ export const CallProvider = ({ children }) => {
 
   // Guards against duplicate offer/answer creation (fixes "Unknown ufrag" errors)
   const negotiationStarted = useRef(false);
-
   const startNegotiation = () => {
     negotiationStarted.current = true;
   };
-
   const isNegotiationStarted = () => negotiationStarted.current;
-
   const resetNegotiationLock = () => {
     negotiationStarted.current = false;
   };
