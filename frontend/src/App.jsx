@@ -111,6 +111,32 @@ const App = () => {
       dispatch(setSSEEvent({ type: "CALL_RECEIVER_OFFLINE" }));
     };
 
+    const onConnectionRequestReceived = (data) => {
+      dispatch(
+        setSSEEvent({
+          type: "CONNECTION_REQUEST_RECEIVED",
+          fromUser: data.fromUser,
+        }),
+      );
+    };
+
+    const onNewFollowerReceived = (data) => {
+      dispatch(
+        setSSEEvent({
+          type: "NEW_FOLLOWER_RECEIVED",
+          follower: data.follower,
+        }),
+      );
+    };
+
+    const onRelationshipUpdate = () => {
+      dispatch(
+        setSSEEvent({
+          type: "RELATIONSHIP_UPDATE",
+        }),
+      );
+    };
+
     // Attach listeners
     socket.on("connect", onConnect);
     socket.on("incoming-call", onIncomingCall);
@@ -132,6 +158,9 @@ const App = () => {
     socket.on("ice-candidate", onIce);
     socket.on("call-ended", onEnd);
     socket.on("user-offline", onOffline);
+    socket.on("connection-request-received", onConnectionRequestReceived);
+    socket.on("new-follower-received", onNewFollowerReceived);
+    socket.on("relationship-update", onRelationshipUpdate);
 
     const onNewMessage = (message) => {
       console.log("📩 Incoming real-time message received:", message);
@@ -144,7 +173,7 @@ const App = () => {
         setSSEEvent({
           type: "NEW_MESSAGE",
           message: message,
-        })
+        }),
       );
     };
 
@@ -165,6 +194,9 @@ const App = () => {
       socket.off("call-ended", onEnd);
       socket.off("user-offline", onOffline);
       socket.off("new-message", onNewMessage);
+      socket.off("connection-request-received", onConnectionRequestReceived);
+      socket.off("new-follower-received", onNewFollowerReceived);
+      socket.off("relationship-update", onRelationshipUpdate);
 
       // Disconnect socket if user signs out
       if (!user && socket.connected) {

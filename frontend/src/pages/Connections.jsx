@@ -6,7 +6,7 @@ import {
   UserRoundPen,
   MessageSquare,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import { useAuth } from "@clerk/clerk-react";
 import { fetchConnections } from "../features/connections/connectionsSlice";
@@ -26,7 +26,18 @@ const Connections = () => {
     following = [],
   } = useSelector((state) => state.connections);
 
-  const [currentTab, setCurrentTab] = useState("Connections");
+  // const [currentTab, setCurrentTab] = useState("Connections");
+  const location = useLocation();
+  const [activeTab, setActiveTab] = useState(
+      location.state?.activeTab || "Connections"
+    );
+
+    // Sync activeTab if navigation happens while already on the page
+    useEffect(() => {
+      if (location.state?.activeTab) {
+        setActiveTab(location.state.activeTab);
+      }
+    }, [location.state]);
 
   useEffect(() => {
     loadConnections();
@@ -66,7 +77,7 @@ const Connections = () => {
   ];
 
   const activeTabData =
-    dataArray.find((tab) => tab.label === currentTab)?.value || [];
+    dataArray.find((tab) => tab.label === activeTab)?.value || [];
 
   // -----------------------------
   // API FUNCTIONS
@@ -220,7 +231,7 @@ const Connections = () => {
   // -----------------------------
 
   const renderButtons = (user) => {
-    switch (currentTab) {
+    switch (activeTab) {
       case "Connections":
         return (
           <>
@@ -332,9 +343,9 @@ const Connections = () => {
           {dataArray.map((tab) => (
             <button
               key={tab.label}
-              onClick={() => setCurrentTab(tab.label)}
+              onClick={() => setActiveTab(tab.label)}
               className={`flex items-center gap-2 px-4 py-2 rounded-md transition cursor-pointer ${
-                currentTab === tab.label
+                activeTab === tab.label
                   ? "bg-slate-100 text-black font-medium"
                   : "text-slate-500 hover:text-black"
               }`}

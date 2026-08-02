@@ -119,6 +119,43 @@ const CallManager = ({ children }) => {
           break;
         }
 
+        case "NEW_FOLLOWER_RECEIVED": {
+          const follower = sseEvent.follower;
+
+          toast(
+            (t) => (
+              <div className="flex items-center justify-between gap-3 min-w-[220px]">
+                <div className="flex items-center gap-2">
+                  <img
+                    src={
+                      follower?.profile_picture ||
+                      "https://via.placeholder.com/40"
+                    }
+                    alt={follower?.full_name}
+                    className="w-8 h-8 rounded-full object-cover"
+                  />
+                  <p className="text-sm">
+                    <b>{follower?.full_name || "Someone"}</b> started following
+                    you.
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    navigate("/connections", {
+                      state: { activeTab: "Followers" },
+                    });
+                    toast.dismiss();
+                  }}
+                  className="px-3 py-1 text-xs rounded bg-purple-600 text-white hover:bg-purple-700 font-medium transition cursor-pointer shrink-0"
+                >
+                  View
+                </button>
+              </div>
+            ),
+            { duration: 5000 },
+          );
+          break;
+        }
         // ========================================
         // ADD THIS CASE FOR REAL-TIME MESSAGES
         // ========================================
@@ -199,7 +236,9 @@ const CallManager = ({ children }) => {
         }
         case "CALL_RECEIVER_OFFLINE": {
           // 🟢 Show instant feedback to the caller
-          toast.error(`${remoteUser?.full_name || "User"} is currently offline`);
+          toast.error(
+            `${remoteUser?.full_name || "User"} is currently offline`,
+          );
 
           if (targetUserId) {
             socket.emit("end-call", {
@@ -222,7 +261,8 @@ const CallManager = ({ children }) => {
           const senderId = sender?._id || sender;
 
           // 🟢 Check if current user is ALREADY inside this user's chatbox
-          const isCurrentlyInChat = location.pathname === `/messages/${senderId}`;
+          const isCurrentlyInChat =
+            location.pathname === `/messages/${senderId}`;
 
           // If already chatting with this user, don't show toast popup
           if (isCurrentlyInChat) break;
@@ -232,7 +272,9 @@ const CallManager = ({ children }) => {
             (t) => (
               <div className="flex items-center gap-3">
                 <img
-                  src={sender?.profile_picture || "https://via.placeholder.com/40"}
+                  src={
+                    sender?.profile_picture || "https://via.placeholder.com/40"
+                  }
                   alt={sender?.full_name}
                   className="w-10 h-10 rounded-full object-cover"
                 />
@@ -255,7 +297,7 @@ const CallManager = ({ children }) => {
                 </button>
               </div>
             ),
-            { duration: 4000 }
+            { duration: 4000 },
           );
           break;
         }

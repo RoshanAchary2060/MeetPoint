@@ -7,6 +7,7 @@ import fs from "fs";
 
 import { sendEventToUser } from "../utils/sse.js";
 import Message from "../models/Message.js";
+import { getReceiverSocketId, io } from "../socket/socketHandler.js";
 
 // Helper to get userId from Clerk req.auth regardless of version
 const getUserIdFromReq = (req) => {
@@ -160,9 +161,31 @@ export const followUser = async (req, res) => {
     const toUser = await User.findById(id);
     toUser.followers.push(userId);
     await toUser.save();
-    // after successfully following
-    sendEventToUser(userId, { type: "RELATIONSHIP_UPDATE" });
-    sendEventToUser(id, { type: "RELATIONSHIP_UPDATE" });
+
+    // Fetch sender info for socket payload
+    const follower = await User.findById(userId)
+      .select("_id full_name username profile_picture")
+      .lean();
+
+    // 🟢 Real-Time Socket Emissions
+    const targetSocketId = getReceiverSocketId(id);
+    const senderSocketId = getReceiverSocketId(userId);
+
+    // 1. Trigger state refresh on both sides
+    if (targetSocketId) io.to(targetSocketId).emit("relationship-update");
+    if (senderSocketId) io.to(senderSocketId).emit("relationship-update");
+
+    // 2. Send toast payload to target user if online
+    if (targetSocketId) {
+      io.to(targetSocketId).emit("new-follower-received", {
+        follower: {
+          _id: follower._id,
+          full_name: follower.full_name,
+          username: follower.username,
+          profile_picture: follower.profile_picture,
+        },
+      });
+    }
 
     res.json({ success: true, message: "Now you are following this user" });
   } catch (error) {
@@ -170,7 +193,6 @@ export const followUser = async (req, res) => {
     res.json({ success: false, message: error.message });
   }
 };
-
 // UNFOLLOW USER
 export const unfollowUser = async (req, res) => {
   try {
@@ -185,8 +207,10 @@ export const unfollowUser = async (req, res) => {
     toUser.followers = toUser.followers?.filter((f) => f !== userId);
     await toUser.save();
 
-    sendEventToUser(userId, { type: "RELATIONSHIP_UPDATE" });
-    sendEventToUser(id, { type: "RELATIONSHIP_UPDATE" });
+    const targetSocketId = getReceiverSocketId(id);
+    const senderSocketId = getReceiverSocketId(userId);
+    if (targetSocketId) io.to(targetSocketId).emit("relationship-update");
+    if (senderSocketId) io.to(senderSocketId).emit("relationship-update");
 
     res.json({
       success: true,
@@ -212,7 +236,10 @@ export const sendConnectionRequest = async (req, res) => {
     });
 
     if (connectionRequests.length >= 20) {
-      return res.json({ success: false, message: "Limit reached: 20 requests in 24h" });
+      return res.json({
+        success: false,
+        message: "Limit reached: 20 requests in 24h",
+      });
     }
 
     const connection = await Connection.findOne({
@@ -225,51 +252,53 @@ export const sendConnectionRequest = async (req, res) => {
     if (!connection) {
       const newConnection = await Connection.create({
         from_user_id: userId,
-        to_user_id: id
+        to_user_id: id,
       });
 
       await inngest.send({
         name: "app/connection-request",
-        data: { connectionId: newConnection._id }
+        data: { connectionId: newConnection._id },
       });
 
-      sendEventToUser(userId, { type: "RELATIONSHIP_UPDATE" });
-      sendEventToUser(id, { type: "RELATIONSHIP_UPDATE" });
-
-      // FIX: Get sender data as plain object
+      // Fetch sender info for socket payload
       const sender = await User.findById(userId)
         .select("_id full_name username profile_picture")
         .lean();
 
-      // FIX: Send as JSON string if needed
-      sendEventToUser(id, {
-        type: "CONNECTION_REQUEST_RECEIVED",
-        fromUser: JSON.stringify({
-          _id: sender._id,
-          full_name: sender.full_name,
-          username: sender.username,
-          profile_picture: sender.profile_picture
-        })
-      });
+      // 🟢 Real-Time Socket Emissions
+      const targetSocketId = getReceiverSocketId(id);
+      const senderSocketId = getReceiverSocketId(userId);
+
+      // 1. Trigger state refresh on both sides
+      if (targetSocketId) io.to(targetSocketId).emit("relationship-update");
+      if (senderSocketId) io.to(senderSocketId).emit("relationship-update");
+
+      // 2. Send toast payload to target user if online
+      if (targetSocketId) {
+        io.to(targetSocketId).emit("connection-request-received", {
+          fromUser: {
+            _id: sender._id,
+            full_name: sender.full_name,
+            username: sender.username,
+            profile_picture: sender.profile_picture,
+          },
+        });
+      }
 
       return res.json({
         success: true,
-        message: "Connection request sent successfully"
+        message: "Connection request sent successfully",
       });
-
     } else if (connection.status === "accepted") {
       return res.json({ success: false, message: "Already connected" });
     }
 
     return res.json({ success: false, message: "Connection request pending" });
-
   } catch (error) {
     console.error(error);
-    console.log(error);
     res.json({ success: false, message: error.message });
   }
-}// GET USER CONNECTIONS
-//
+};//
 //
 export const getUserConnections = async (req, res) => {
   try {
@@ -318,8 +347,10 @@ export const acceptConnectionRequest = async (req, res) => {
     await User.findByIdAndUpdate(userId, { $addToSet: { connections: id } });
     await User.findByIdAndUpdate(id, { $addToSet: { connections: userId } });
 
-    sendEventToUser(userId, { type: "RELATIONSHIP_UPDATE" });
-    sendEventToUser(id, { type: "RELATIONSHIP_UPDATE" });
+    const targetSocketId = getReceiverSocketId(id);
+    const senderSocketId = getReceiverSocketId(userId);
+    if (targetSocketId) io.to(targetSocketId).emit("relationship-update");
+    if (senderSocketId) io.to(senderSocketId).emit("relationship-update");
 
     res.json({ success: true, message: "Connection accepted successfully" });
   } catch (error) {
@@ -361,8 +392,10 @@ export const declineConnectionRequest = async (req, res) => {
       return res.json({ success: false, message: "Connection request not found" });
     }
 
-    sendEventToUser(userId, { type: "RELATIONSHIP_UPDATE" });
-    sendEventToUser(id, { type: "RELATIONSHIP_UPDATE" });
+    const targetSocketId = getReceiverSocketId(id);
+    const senderSocketId = getReceiverSocketId(userId);
+    if (targetSocketId) io.to(targetSocketId).emit("relationship-update");
+    if (senderSocketId) io.to(senderSocketId).emit("relationship-update");
 
     res.json({ success: true, message: "Connection request declined" });
   } catch (error) {
@@ -386,8 +419,10 @@ export const cancelConnectionRequest = async (req, res) => {
       return res.json({ success: false, message: "Connection request not found" });
     }
 
-    sendEventToUser(userId, { type: "RELATIONSHIP_UPDATE" });
-    sendEventToUser(targetId, { type: "RELATIONSHIP_UPDATE" });
+    const targetSocketId = getReceiverSocketId(targetId);
+    const senderSocketId = getReceiverSocketId(userId);
+    if (targetSocketId) io.to(targetSocketId).emit("relationship-update");
+    if (senderSocketId) io.to(senderSocketId).emit("relationship-update");
 
     res.json({ success: true, message: "Connection request cancelled" });
   } catch (error) {
@@ -418,9 +453,10 @@ export const disconnectUser = async (req, res) => {
       ],
     });
 
-    sendEventToUser(userId, { type: "RELATIONSHIP_UPDATE" });
-    sendEventToUser(targetId, { type: "RELATIONSHIP_UPDATE" });
-    sendEventToUser(targetId, { type: "DISCONNECTED_BY_USER", withUserId: userId });
+    const targetSocketId = getReceiverSocketId(targetId);
+    const senderSocketId = getReceiverSocketId(userId);
+    if (targetSocketId) io.to(targetSocketId).emit("relationship-update");
+    if (senderSocketId) io.to(senderSocketId).emit("relationship-update");
 
     res.json({ success: true, message: "Disconnected successfully" });
   } catch (error) {
