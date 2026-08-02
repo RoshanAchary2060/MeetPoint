@@ -2,11 +2,12 @@ import fs from "fs";
 // import imageKit from "../configs/imageKit.js";
 import imagekit from "../configs/imageKit.js";
 import Message from "../models/Message.js";
-import {
-  addConnection,
-  removeConnection,
-  sendEventToUser,
-} from "../utils/sse.js";
+// import {
+//   addConnection,
+//   removeConnection,
+//   sendEventToUser,
+// } from "../utils/sse.js";
+import { sendEventToUser } from "../utils/pusher.js";
 
 // SEND MESSAGE
 // SEND MESSAGE - FIXED

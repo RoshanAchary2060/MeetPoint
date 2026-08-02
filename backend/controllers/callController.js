@@ -1,4 +1,4 @@
-import { sendEventToUser } from "../utils/sse.js";
+import { sendEventToUser } from "../utils/pusher.js";
 import User from "../models/User.js";
 import PendingCall from "../models/PendingCall.js";
 import { addCall, updateCallStatus } from "../utils/calls.js"; // 👈 Added updateCallStatus import

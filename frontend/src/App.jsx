@@ -10,6 +10,7 @@ import Profile from "./pages/Profile";
 import CreatePost from "./pages/CreatePost";
 import Layout from "./pages/Layout";
 import CallManager from "./components/CallManager";
+import Pusher from "../../backend/utils/pusher.js";
 
 import { useUser, useAuth } from "@clerk/clerk-react";
 import { Toaster } from "react-hot-toast";
@@ -45,132 +46,56 @@ const App = () => {
   }, [user, dispatch, getToken]);
 
   // Single Consolidated Global SSE Listener
+
+  // ...inside App component...
+
   useEffect(() => {
     if (!user) return;
+    let pusherClient;
+    let channel;
 
+    const connectPusher = async () => {
+      const token = await getToken();
 
-    let eventSource;
-    let reconnectTimer;
+      pusherClient = new Pusher(import.meta.env.VITE_PUSHER_KEY, {
+        cluster: import.meta.env.VITE_PUSHER_CLUSTER,
+        authEndpoint: `${import.meta.env.VITE_BASEURL}/api/pusher/auth`,
+        auth: {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      });
 
+      channel = pusherClient.subscribe(`private-user-${user.id}`);
 
-    const connectSSE = () => {
-
-      console.log("Connecting SSE...");
-
-
-      eventSource = new EventSource(
-        `${import.meta.env.VITE_BASEURL}/api/message/sse/${user.id}`
-      );
-
-
-      eventSource.onopen = () => {
-
-        console.log(
-          "✅ SSE CONNECTED"
-        );
-
-      };
-
-
-      eventSource.onmessage = (event) => {
-
-        try {
-
-          const data = JSON.parse(event.data);
-
-          console.log(
-            "⚡ SSE Event Received:",
-            data
-          );
-
-
-          if (data.type === "NEW_MESSAGE") {
-
-            const senderId =
-              data.message.from_user_id?._id ||
-              data.message.from_user_id;
-
-
-            if(
-              pathnameRef.current ===
-              `/messages/${senderId}`
-            ){
-
-              dispatch(addMessages(data.message));
-
-            }else{
-
-              dispatch(setSSEEvent(data));
-
-            }
-
-
-          }else{
-
+      channel.bind("app-event", (data) => {
+        if (data.type === "NEW_MESSAGE") {
+          const senderId = data.message.from_user_id?._id || data.message.from_user_id;
+          if (pathnameRef.current === `/messages/${senderId}`) {
+            dispatch(addMessages(data.message));
+          } else {
             dispatch(setSSEEvent(data));
-
           }
-
-
-        } catch(error){
-
-          console.error(
-            "SSE parse error",
-            error
-          );
-
+        } else {
+          dispatch(setSSEEvent(data));
         }
+      });
 
-      };
+      pusherClient.connection.bind("connected", () => {
+        console.log("✅ Pusher CONNECTED");
+      });
 
-
-
-      eventSource.onerror = () => {
-
-        console.log(
-          "❌ SSE disconnected. Reconnecting..."
-        );
-
-
-        eventSource.close();
-
-
-        reconnectTimer = setTimeout(()=>{
-
-          connectSSE();
-
-        },3000);
-
-
-      };
-
+      pusherClient.connection.bind("error", (err) => {
+        console.log("❌ Pusher error", err);
+      });
     };
 
+    connectPusher();
 
-    connectSSE();
-
-
-
-    return ()=>{
-
-      if(eventSource){
-
-        eventSource.close();
-
-      }
-
-
-      if(reconnectTimer){
-
-        clearTimeout(reconnectTimer);
-
-      }
-
+    return () => {
+      if (channel) channel.unbind_all();
+      if (pusherClient) pusherClient.disconnect();
     };
-
-
-  },[user,dispatch]);
-  return (
+  }, [user, dispatch]);  return (
     <CallManager>
       <Toaster />
       {/* <Routes>

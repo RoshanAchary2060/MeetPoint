@@ -13,6 +13,7 @@ import storyRouter from "./routes/storyRoutes.js";
 import messageRouter from "./routes/messageRoutes.js";
 import commentRouter from "./routes/commentRoutes.js";
 import callRoutes from "./routes/callRoutes.js";
+import pusher from "./utils/pusher.js";
 
 const app = express();
 
@@ -51,5 +52,17 @@ app.use("/api/call", callRoutes);
 const PORT = process.env.PORT || 4000;
 
 app.listen(PORT, () => console.log("Server is running on port", PORT));
+
+app.post("/api/pusher/auth", (req, res) => {
+  const userId = req.auth?.().userId;
+  const { socket_id, channel_name } = req.body;
+
+  if (!userId || channel_name !== `private-user-${userId}`) {
+    return res.status(403).send("Forbidden");
+  }
+
+  const authResponse = pusher.authorizeChannel(socket_id, channel_name);
+  res.json(authResponse);
+});
 
 export default app;
