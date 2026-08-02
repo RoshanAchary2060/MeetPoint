@@ -37,6 +37,18 @@ app.get("/test", async (req, res) => {
 
   res.json(user);
 });
+app.get("/api/turn-credentials", async (req, res) => {
+  try {
+    const response = await fetch(
+      `https://${process.env.METERED_DOMAIN}/api/v1/turn/credentials?apiKey=${process.env.METERED_SECRET_KEY}`
+    );
+    const iceServers = await response.json();
+    res.json({ success: true, iceServers });
+  } catch (error) {
+    console.error("TURN credentials fetch error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
 app.use("/api/inngest", serve({ client: inngest, functions }));
 app.use("/api/user", userRouter);
 app.use("/api/post", postRouter);

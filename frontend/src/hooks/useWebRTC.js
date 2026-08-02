@@ -1,7 +1,34 @@
 // hooks/useWebRTC.js
 import { useRef, useState, useCallback } from "react";
 import { useCall } from "../context/callContext";
+let cachedServers = null;
 
+const getIceServers = async () => {
+  if (cachedServers) return cachedServers;
+
+  try {
+    const res = await fetch(
+      `${import.meta.env.VITE_BASEURL}/api/turn-credentials`,
+    );
+    const data = await res.json();
+
+    if (data.success && Array.isArray(data.iceServers)) {
+      cachedServers = { iceServers: data.iceServers };
+    } else {
+      throw new Error("Invalid TURN credentials response");
+    }
+  } catch (err) {
+    console.error(
+      "Failed to fetch TURN credentials, falling back to STUN only:",
+      err,
+    );
+    cachedServers = {
+      iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+    };
+  }
+
+  return cachedServers;
+};
 const servers = {
   iceServers: [
     {
@@ -80,11 +107,12 @@ const useWebRTC = () => {
   };
 
   const createPeerConnection = useCallback(
-    (onIceCandidate) => {
+    async (onIceCandidate) => {
       if (peerConnection.current) {
         cleanup();
       }
 
+      const servers = await getIceServers();
       const pc = new RTCPeerConnection(servers);
 
       pc.ontrack = (event) => {
@@ -163,7 +191,7 @@ const useWebRTC = () => {
     await startLocalStream();
     console.log("2. After startLocalStream");
 
-    const pc = createPeerConnection(onIceCandidate);
+    const pc = await createPeerConnection(onIceCandidate);
 
     console.log("3. Before createOffer");
     const offer = await pc.createOffer();
@@ -178,7 +206,7 @@ const useWebRTC = () => {
 
   const createAnswer = async (offer, onIceCandidate) => {
     await startLocalStream();
-    const pc = createPeerConnection(onIceCandidate);
+    const pc = await createPeerConnection(onIceCandidate);
 
     await pc.setRemoteDescription(new RTCSessionDescription(offer));
 
