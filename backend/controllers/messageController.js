@@ -25,19 +25,24 @@ export const sendMessage = async (req, res) => {
     let message_type = image ? "image" : "text";
 
     if (message_type === "image") {
-      const fileBuffer = fs.readFileSync(image.path);
+      const base64File = image.buffer.toString("base64");
+
       const response = await imagekit.files.upload({
-        file: fileBuffer,
-        fileName: image.originalname,
+        file: base64File,
+        fileName: image.originalname || `message_${Date.now()}.jpg`,
+        folder: "messages",
       });
-      media_url = imagekit.url({
-        path: response.filePath,
-        transformation: [
-          { quality: "auto" },
-          { format: "webp" },
-          { width: "1280" },
-        ],
-      });
+
+      media_url = imagekit.url
+        ? imagekit.url({
+            path: response.filePath,
+            transformation: [
+              { quality: "auto" },
+              { format: "webp" },
+              { width: "1280" },
+            ],
+          })
+        : response.url;
     }
 
     const message = await Message.create({

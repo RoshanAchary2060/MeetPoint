@@ -53,13 +53,6 @@ const PostCard = ({ post }) => {
       );
       if (data.success) {
         toast.success(data.message);
-
-        setPostData((prev) => ({
-          ...prev,
-          likes: prev.likes.includes(currentUserId)
-            ? prev.likes.filter((id) => id !== currentUserId)
-            : [...prev.likes, currentUserId],
-        }));
       } else {
         toast(data.message);
       }
@@ -108,6 +101,10 @@ const PostCard = ({ post }) => {
       prev === 0 ? postData.image_urls.length - 1 : prev - 1,
     );
   };
+
+  useEffect(() => {
+    setPostData(post);
+  }, [post]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {

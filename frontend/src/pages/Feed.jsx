@@ -9,7 +9,7 @@ import PostCard from "../components/PostCard";
 import RecentMessages from "../components/RecentMessages";
 
 import { clearSSEEvent } from "../features/sse/sseSlice.js";
-import { fetchPosts, removePost, addPost } from "../features/posts/postSlice";
+import { fetchPosts, removePost, addPost, updatePost } from "../features/posts/postSlice";
 import socket from "../socket/socket.js";
 
 const Feed = () => {
@@ -37,6 +37,9 @@ const Feed = () => {
 
     loadInitialPosts();
   }, [dispatch, getToken]);
+  const handleLikedPost = (updatedPost) => {
+    dispatch(updatePost(updatedPost));
+  };
 
   // 2. Real-time updates via Socket.io
   useEffect(() => {
@@ -51,10 +54,12 @@ const Feed = () => {
 
     socket.on("POST_CREATED", handleNewPost);
     socket.on("POST_DELETED", handleDeletedPost);
+    socket.on("POST_LIKED", handleLikedPost);
 
     return () => {
       socket.off("POST_CREATED", handleNewPost);
       socket.off("POST_DELETED", handleDeletedPost);
+      socket.off("POST_LIKED", handleLikedPost);
     };
   }, [dispatch]);
 
@@ -69,6 +74,10 @@ const Feed = () => {
 
       case "POST_DELETED":
         dispatch(removePost(sseEvent.data.postId));
+        break;
+
+      case "POST_LIKED":
+        dispatch(addPost(sseEvent.data));
         break;
 
       default:

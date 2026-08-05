@@ -41,7 +41,7 @@ export const addPost = async (req, res) => {
             : response.url;
 
           return url;
-        })
+        }),
       );
     }
 
@@ -102,7 +102,7 @@ export const getFeedPosts = async (req, res) => {
       success: true,
       posts,
       page,
-      hasMore: posts.length === limit
+      hasMore: posts.length === limit,
     });
   } catch (error) {
     console.error("Get feed error:", error);
@@ -110,26 +110,58 @@ export const getFeedPosts = async (req, res) => {
   }
 };
 // LIKE POSTS
+// LIKE / UNLIKE POST
 export const likePost = async (req, res) => {
   try {
     const { userId } = req.auth();
     const { postId } = req.body;
+
     const post = await Post.findById(postId);
-    if (post.likes.includes(userId)) {
-      post.likes = post.likes.filter((user) => user !== userId);
-      await post.save();
-      res.json({ success: true, message: "Post unliked" });
-    } else {
-      post.likes.push(userId);
-      await post.save();
-      res.json({ success: true, message: "Post liked" });
+
+    if (!post) {
+      return res.json({
+        success: false,
+        message: "Post not found",
+      });
     }
+
+    // Unlike
+    if (post.likes.includes(userId)) {
+      post.likes = post.likes.filter((id) => id !== userId);
+    }
+    // Like
+    else {
+      post.likes.push(userId);
+    }
+
+    // ✅ Save changes to MongoDB
+    await post.save();
+
+    // ✅ Fetch the updated post with populated user
+    const updatedPost = await Post.findById(postId).populate(
+      "user",
+      "full_name username profile_picture"
+    );
+
+    // ✅ Broadcast to every connected client
+    io.emit("POST_LIKED", updatedPost);
+
+    return res.json({
+      success: true,
+      message: post.likes.includes(userId)
+        ? "Post liked"
+        : "Post unliked",
+      post: updatedPost,
+    });
   } catch (error) {
-    console.log(error);
-    res.json({ success: false, message: error.message });
+    console.error("Like post error:", error);
+
+    return res.json({
+      success: false,
+      message: error.message,
+    });
   }
 };
-
 // DELETE POST
 export const deletePost = async (req, res) => {
   try {
@@ -155,11 +187,8 @@ export const deletePost = async (req, res) => {
 
     await Post.findByIdAndDelete(postId);
 
-    sendEventToAll({
-      type: "POST_DELETED",
-      data: {
-        postId,
-      },
+    io.emit("POST_DELETED", {
+      postId,
     });
 
     // Optional: delete all comments of this post
@@ -212,7 +241,7 @@ export const sharePost = async (req, res) => {
 // GET SINGLE POST
 // GET SINGLE POST (Public)
 export const getSinglePost = async (req, res) => {
-  console.log('inside getSinglePost', req.params);
+  console.log("inside getSinglePost", req.params);
   try {
     const { postId } = req.params;
 
@@ -221,7 +250,7 @@ export const getSinglePost = async (req, res) => {
     if (!post) {
       return res.json({ success: false, message: "Post not found" });
     }
-    console.log('getsingle post successfully returning');
+    console.log("getsingle post successfully returning");
 
     res.json({
       success: true,
