@@ -164,7 +164,7 @@ const Chatbox = () => {
           </button>
 
           <button
-            onClick={() => console.log("Video call clicked")}
+            onClick={() => toast('Video call is coming soon')}
             className="p-2.5 rounded-full hover:bg-indigo-50 text-indigo-600 transition active:scale-95"
             title="Video Call"
           >
