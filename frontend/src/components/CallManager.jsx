@@ -38,6 +38,9 @@ const CallManager = ({ children }) => {
     setRemoteAnswer,
     addIceCandidate,
     toggleMute,
+    toggleCamera,
+    localVideoRef,
+    remoteVideoRef,
     endCall: endWebRTC,
   } = useWebRTC();
 
@@ -63,8 +66,8 @@ const CallManager = ({ children }) => {
   };
 
   useEffect(() => {
-    registerWebRTCControls({ endCall: endWebRTC, toggleMute });
-  }, [endWebRTC, toggleMute]);
+    registerWebRTCControls({ endCall: endWebRTC, toggleMute, toggleCamera });
+  }, [endWebRTC, toggleMute, toggleCamera, registerWebRTCControls]);
 
   useEffect(() => {
     if (!sseEvent) return;
@@ -324,7 +327,12 @@ const CallManager = ({ children }) => {
       ) : null}
       {callState === "incoming" ? <IncomingCallModal /> : null}
       {callState === "connected" ? (
-        <ActiveCall toggleMute={toggleMute} />
+        <ActiveCall
+            toggleMute={toggleMute}
+            toggleCamera={toggleCamera}
+            localVideoRef={localVideoRef}
+            remoteVideoRef={remoteVideoRef}
+          />
       ) : null}
     </>
   );

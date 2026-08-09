@@ -1,10 +1,12 @@
 import { createContext, useContext, useRef, useState } from "react";
 
 const CallContext = createContext();
+
 export const useCall = () => useContext(CallContext);
 
 export const CallProvider = ({ children }) => {
   const [callState, setCallState] = useState("idle");
+
   /*
     idle
     calling
@@ -13,35 +15,57 @@ export const CallProvider = ({ children }) => {
     connected
     ended
   */
+
   const [remoteUser, setRemoteUser] = useState(null);
+
+  // Remote video/audio stream
   const [remoteStream, setRemoteStream] = useState(null);
 
-  // Guards against duplicate offer/answer creation (fixes "Unknown ufrag" errors)
+  // Local camera/microphone stream
+  const [localStream, setLocalStream] = useState(null);
+
+  // Prevent duplicate WebRTC negotiation
   const negotiationStarted = useRef(false);
+
   const startNegotiation = () => {
     negotiationStarted.current = true;
   };
-  const isNegotiationStarted = () => negotiationStarted.current;
+
+  const isNegotiationStarted = () => {
+    return negotiationStarted.current;
+  };
+
   const resetNegotiationLock = () => {
     negotiationStarted.current = false;
   };
 
-  // The real WebRTC controls (createOffer, createAnswer, endCall, etc.)
-  // get registered here by CallManager, so every component shares the SAME connection.
+  /*
+    WebRTC controls are registered by CallManager.
+    This allows ActiveCall and other components
+    to use the SAME WebRTC connection.
+  */
   const webrtcControlsRef = useRef({
     endCall: () => {},
     toggleMute: () => {},
+    toggleCamera: () => {},
   });
 
   const registerWebRTCControls = (controls) => {
-    webrtcControlsRef.current = controls;
+    webrtcControlsRef.current = {
+      ...webrtcControlsRef.current,
+      ...controls,
+    };
   };
 
   const endCall = () => {
     webrtcControlsRef.current.endCall();
+
     negotiationStarted.current = false;
+
     setRemoteUser(null);
     setRemoteStream(null);
+    setLocalStream(null);
+
     setCallState("idle");
   };
 
@@ -50,14 +74,22 @@ export const CallProvider = ({ children }) => {
       value={{
         callState,
         setCallState,
+
         remoteUser,
         setRemoteUser,
+
+        localStream,
+        setLocalStream,
+
         remoteStream,
         setRemoteStream,
+
         startNegotiation,
         isNegotiationStarted,
         resetNegotiationLock,
+
         registerWebRTCControls,
+
         endCall,
       }}
     >
