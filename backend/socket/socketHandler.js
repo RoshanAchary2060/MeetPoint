@@ -77,10 +77,13 @@ export const initializeSocket = (httpServer) => {
       const callerSocketId = onlineUsers.get(callerId);
 
       if (callerSocketId) {
-        io.to(callerSocketId).emit("user-ringing");
+        // 💡 Changed "user-ringing" -> "call-ringing"
+        io.to(callerSocketId).emit("call-ringing");
+        console.log("✅ CALL-RINGING SENT TO CALLER →", callerId);
+      } else {
+        console.log("❌ Caller socket ID not found in onlineUsers!");
       }
-    });
-    // ==================================================
+    });    // ==================================================
     // CANCEL CALL
     // ==================================================
 

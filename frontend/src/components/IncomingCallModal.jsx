@@ -4,17 +4,20 @@ import { useCall } from "../context/callContext.jsx";
 import socket from "../socket/socket";
 
 const IncomingCallModal = () => {
-  const { callState, remoteUser, callType, setCallState, endCall } = useCall();
+  const {
+    callState,
+    remoteUser,
+    callType,
+    setCallState,
+    endCall,
+  } = useCall();
 
   const callerId = remoteUser?.id || remoteUser?._id;
 
-  // 💡 Emit ringing signal back to Caller A as soon as the modal mounts
+  // 💡 Emit call-ringing as soon as the incoming screen displays to Receiver B
   useEffect(() => {
     if (callState === "incoming" && callerId && socket) {
-      console.log(
-        "🔔 Receiver screen visible, sending ringing signal to caller:",
-        callerId,
-      );
+      console.log("🔔 Incoming screen visible. Emitting call-ringing to callerId:", callerId);
       socket.emit("call-ringing", { callerId });
     }
   }, [callState, callerId]);
@@ -48,10 +51,7 @@ const IncomingCallModal = () => {
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm">
       <div className="w-96 rounded-3xl bg-white shadow-2xl p-8 text-center">
         <img
-          src={
-            remoteUser?.profile_picture ||
-            "https://placehold.co/120x120?text=User"
-          }
+          src={remoteUser?.profile_picture || "https://placehold.co/120x120?text=User"}
           alt={remoteUser?.full_name || "User"}
           className="w-28 h-28 rounded-full object-cover mx-auto border-4 border-indigo-500 shadow-lg"
         />
@@ -60,12 +60,12 @@ const IncomingCallModal = () => {
           {remoteUser?.full_name || "MeetPoint User"}
         </h2>
 
-        <p className="text-gray-500 mt-1">@{remoteUser?.username || "user"}</p>
+        <p className="text-gray-500 mt-1">
+          @{remoteUser?.username || "user"}
+        </p>
 
         <p className="text-indigo-600 font-medium mt-5">
-          {callType === "video"
-            ? "🎥 Incoming Video Call"
-            : "📞 Incoming Audio Call"}
+          {callType === "video" ? "🎥 Incoming Video Call" : "📞 Incoming Audio Call"}
         </p>
 
         <div className="flex gap-4 mt-8">
