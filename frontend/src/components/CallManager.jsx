@@ -93,6 +93,22 @@ const CallManager = ({ children }) => {
   // SOCKET CONNECTION
   // =========================================================
 
+  // CallManager.jsx (Caller A side)
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleUserRinging = () => {
+      console.log("🔔 Receiver device is now ringing!");
+      setCallState("ringing");
+    };
+
+    socket.on("user-ringing", handleUserRinging);
+
+    return () => {
+      socket.off("user-ringing", handleUserRinging);
+    };
+  }, [socket, setCallState]);
+
   useEffect(() => {
     if (!userId) {
       return;
