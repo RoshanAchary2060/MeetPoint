@@ -111,11 +111,7 @@ const ActiveCall = ({
   // =========================================================
 
   useEffect(() => {
-    if (
-      callType !== "video" ||
-      !localVideoRef?.current ||
-      !localStream
-    ) {
+    if (callType !== "video" || !localVideoRef?.current || !localStream) {
       return;
     }
 
@@ -126,10 +122,7 @@ const ActiveCall = ({
     }
 
     video.play().catch((error) => {
-      console.log(
-        "Local video autoplay prevented:",
-        error,
-      );
+      console.log("Local video autoplay prevented:", error);
     });
 
     return () => {
@@ -144,11 +137,7 @@ const ActiveCall = ({
   // =========================================================
 
   useEffect(() => {
-    if (
-      callType !== "video" ||
-      !remoteVideoRef?.current ||
-      !remoteStream
-    ) {
+    if (callType !== "video" || !remoteVideoRef?.current || !remoteStream) {
       return;
     }
 
@@ -159,10 +148,7 @@ const ActiveCall = ({
     }
 
     video.play().catch((error) => {
-      console.log(
-        "Remote video autoplay prevented:",
-        error,
-      );
+      console.log("Remote video autoplay prevented:", error);
     });
 
     return () => {
@@ -180,9 +166,10 @@ const ActiveCall = ({
     const minutes = Math.floor(seconds / 60);
     const secs = seconds % 60;
 
-    return `${String(minutes).padStart(2, "0")}:${String(
-      secs,
-    ).padStart(2, "0")}`;
+    return `${String(minutes).padStart(2, "0")}:${String(secs).padStart(
+      2,
+      "0",
+    )}`;
   };
 
   // =========================================================
@@ -190,15 +177,9 @@ const ActiveCall = ({
   // =========================================================
 
   const handleEndCall = () => {
-    const targetId =
-      remoteUser?._id ||
-      remoteUser?.id ||
-      remoteUser;
+    const targetId = remoteUser?._id || remoteUser?.id || remoteUser;
 
-    console.log(
-      "📴 Sending END CALL signal to target ID:",
-      targetId,
-    );
+    console.log("📴 Sending END CALL signal to target ID:", targetId);
 
     if (targetId && socket) {
       socket.emit("end-call", {
@@ -298,50 +279,31 @@ const ActiveCall = ({
       // =====================================================
 
       if (dragRef.current.dragging) {
-        const dx =
-          event.clientX -
-          dragRef.current.startX;
+        const dx = event.clientX - dragRef.current.startX;
 
-        const dy =
-          event.clientY -
-          dragRef.current.startY;
+        const dy = event.clientY - dragRef.current.startY;
 
-        const newLeft =
-          dragRef.current.startLeft + dx;
+        const newLeft = dragRef.current.startLeft + dx;
 
-        const newTop =
-          dragRef.current.startTop + dy;
+        const newTop = dragRef.current.startTop + dy;
 
-        const preview =
-          localPreviewRef.current;
+        const preview = localPreviewRef.current;
 
         if (!preview) {
           return;
         }
 
-        const previewWidth =
-          preview.offsetWidth;
+        const previewWidth = preview.offsetWidth;
 
-        const previewHeight =
-          preview.offsetHeight;
+        const previewHeight = preview.offsetHeight;
 
-        const maxLeft =
-          window.innerWidth -
-          previewWidth;
+        const maxLeft = window.innerWidth - previewWidth;
 
-        const maxTop =
-          window.innerHeight -
-          previewHeight;
+        const maxTop = window.innerHeight - previewHeight;
 
-        const boundedLeft = Math.max(
-          0,
-          Math.min(newLeft, maxLeft),
-        );
+        const boundedLeft = Math.max(0, Math.min(newLeft, maxLeft));
 
-        const boundedTop = Math.max(
-          0,
-          Math.min(newTop, maxTop),
-        );
+        const boundedTop = Math.max(0, Math.min(newTop, maxTop));
 
         setLocalPosition({
           x: boundedLeft,
@@ -354,28 +316,18 @@ const ActiveCall = ({
       // =====================================================
 
       if (resizeRef.current.resizing) {
-        const dx =
-          event.clientX -
-          resizeRef.current.startX;
+        const dx = event.clientX - resizeRef.current.startX;
 
-        const dy =
-          event.clientY -
-          resizeRef.current.startY;
+        const dy = event.clientY - resizeRef.current.startY;
 
         const newWidth = Math.max(
           140,
-          Math.min(
-            resizeRef.current.startWidth + dx,
-            500,
-          ),
+          Math.min(resizeRef.current.startWidth + dx, 500),
         );
 
         const newHeight = Math.max(
           180,
-          Math.min(
-            resizeRef.current.startHeight + dy,
-            600,
-          ),
+          Math.min(resizeRef.current.startHeight + dy, 600),
         );
 
         setLocalSize({
@@ -392,26 +344,14 @@ const ActiveCall = ({
       document.body.style.userSelect = "";
     };
 
-    window.addEventListener(
-      "pointermove",
-      handlePointerMove,
-    );
+    window.addEventListener("pointermove", handlePointerMove);
 
-    window.addEventListener(
-      "pointerup",
-      handlePointerUp,
-    );
+    window.addEventListener("pointerup", handlePointerUp);
 
     return () => {
-      window.removeEventListener(
-        "pointermove",
-        handlePointerMove,
-      );
+      window.removeEventListener("pointermove", handlePointerMove);
 
-      window.removeEventListener(
-        "pointerup",
-        handlePointerUp,
-      );
+      window.removeEventListener("pointerup", handlePointerUp);
 
       document.body.style.userSelect = "";
     };
@@ -423,46 +363,28 @@ const ActiveCall = ({
 
   useEffect(() => {
     const keepInsideWindow = () => {
-      const preview =
-        localPreviewRef.current;
+      const preview = localPreviewRef.current;
 
       if (!preview) {
         return;
       }
 
-      const rect =
-        preview.getBoundingClientRect();
+      const rect = preview.getBoundingClientRect();
 
-      const maxLeft =
-        window.innerWidth -
-        rect.width;
+      const maxLeft = window.innerWidth - rect.width;
 
-      const maxTop =
-        window.innerHeight -
-        rect.height;
+      const maxTop = window.innerHeight - rect.height;
 
       setLocalPosition((previous) => ({
-        x: Math.max(
-          0,
-          Math.min(previous.x, maxLeft),
-        ),
-        y: Math.max(
-          0,
-          Math.min(previous.y, maxTop),
-        ),
+        x: Math.max(0, Math.min(previous.x, maxLeft)),
+        y: Math.max(0, Math.min(previous.y, maxTop)),
       }));
     };
 
-    window.addEventListener(
-      "resize",
-      keepInsideWindow,
-    );
+    window.addEventListener("resize", keepInsideWindow);
 
     return () => {
-      window.removeEventListener(
-        "resize",
-        keepInsideWindow,
-      );
+      window.removeEventListener("resize", keepInsideWindow);
     };
   }, []);
 
@@ -482,11 +404,9 @@ const ActiveCall = ({
     return (
       <div className="fixed inset-0 z-[9997] bg-gray-950 text-white flex flex-col items-center justify-center">
         <div className="flex flex-col items-center">
-
           {/* PROFILE */}
 
           <div className="w-32 h-32 rounded-full bg-gray-800 flex items-center justify-center overflow-hidden border-4 border-white/10">
-
             {remoteUser?.profile_picture ? (
               <img
                 src={remoteUser.profile_picture}
@@ -496,46 +416,31 @@ const ActiveCall = ({
             ) : (
               <User className="w-14 h-14 text-gray-400" />
             )}
-
           </div>
 
           {/* NAME */}
 
           <h2 className="mt-6 text-2xl font-semibold">
-            {remoteUser?.full_name ||
-              "MeetPoint User"}
+            {remoteUser?.full_name || "MeetPoint User"}
           </h2>
 
           {/* TIMER */}
 
-          <p className="text-gray-400 mt-2">
-            Connected • {formatTime()}
-          </p>
+          <p className="text-gray-400 mt-2">Connected • {formatTime()}</p>
 
           {/* CONTROLS */}
 
           <div className="mt-10 flex items-center gap-4">
-
             {/* MUTE */}
 
             <button
               onClick={handleToggleMute}
               className={`w-14 h-14 rounded-full flex items-center justify-center ${
-                isMuted
-                  ? "bg-red-500"
-                  : "bg-white/15"
+                isMuted ? "bg-red-500" : "bg-white/15"
               }`}
-              title={
-                isMuted
-                  ? "Unmute"
-                  : "Mute"
-              }
+              title={isMuted ? "Unmute" : "Mute"}
             >
-              {isMuted ? (
-                <MicOff />
-              ) : (
-                <Mic />
-              )}
+              {isMuted ? <MicOff /> : <Mic />}
             </button>
 
             {/* END CALL */}
@@ -547,7 +452,6 @@ const ActiveCall = ({
             >
               <PhoneOff className="w-7 h-7" />
             </button>
-
           </div>
         </div>
       </div>
@@ -560,7 +464,6 @@ const ActiveCall = ({
 
   return (
     <div className="fixed inset-0 z-[9997] bg-gray-950 text-white overflow-hidden">
-
       {/* =====================================================
           REMOTE VIDEO
           FIXED — NOT DRAGGABLE
@@ -568,10 +471,7 @@ const ActiveCall = ({
       ====================================================== */}
 
       <div className="absolute inset-0 flex items-center justify-center bg-gray-950 pointer-events-none">
-
-        {remoteStream &&
-        remoteStream.getVideoTracks().length > 0 ? (
-
+        {remoteStream && remoteStream.getVideoTracks().length > 0 ? (
           <video
             ref={remoteVideoRef}
             autoPlay
@@ -587,13 +487,9 @@ const ActiveCall = ({
               pointer-events-none
             "
           />
-
         ) : (
-
           <div className="flex flex-col items-center justify-center">
-
             <div className="w-28 h-28 rounded-full bg-gray-800 flex items-center justify-center overflow-hidden">
-
               {remoteUser?.profile_picture ? (
                 <img
                   src={remoteUser.profile_picture}
@@ -604,21 +500,15 @@ const ActiveCall = ({
               ) : (
                 <User className="w-12 h-12 text-gray-400" />
               )}
-
             </div>
 
             <p className="mt-5 text-xl font-semibold">
-              {remoteUser?.full_name ||
-                "User"}
+              {remoteUser?.full_name || "User"}
             </p>
 
-            <p className="text-sm text-gray-400 mt-1">
-              Camera unavailable
-            </p>
-
+            <p className="text-sm text-gray-400 mt-1">Camera unavailable</p>
           </div>
         )}
-
       </div>
 
       {/* =====================================================
@@ -626,26 +516,19 @@ const ActiveCall = ({
       ====================================================== */}
 
       <div className="absolute top-0 left-0 right-0 p-5 bg-gradient-to-b from-black/70 to-transparent pointer-events-none">
-
         <div className="flex items-center justify-between">
-
           <div>
             <h2 className="font-semibold text-lg">
-              {remoteUser?.full_name ||
-                "MeetPoint User"}
+              {remoteUser?.full_name || "MeetPoint User"}
             </h2>
 
-            <p className="text-sm text-gray-300">
-              Connected • {formatTime()}
-            </p>
+            <p className="text-sm text-gray-300">Connected • {formatTime()}</p>
           </div>
 
           <div className="px-3 py-1 rounded-full bg-black/40 backdrop-blur-md text-xs">
             MeetPoint
           </div>
-
         </div>
-
       </div>
 
       {/* =====================================================
@@ -667,7 +550,6 @@ const ActiveCall = ({
           touchAction: "none",
         }}
       >
-
         {/* =================================================
             DRAG HEADER
         ================================================== */}
@@ -688,7 +570,6 @@ const ActiveCall = ({
         ================================================== */}
 
         {!isCameraOff ? (
-
           <video
             ref={localVideoRef}
             autoPlay
@@ -699,21 +580,14 @@ const ActiveCall = ({
             draggable={false}
             className="w-full h-full object-cover select-none pointer-events-none"
           />
-
         ) : (
-
           <div className="w-full h-full flex flex-col items-center justify-center bg-gray-900">
-
             <div className="w-14 h-14 rounded-full bg-gray-700 flex items-center justify-center">
               <VideoOff className="w-7 h-7 text-gray-300" />
             </div>
 
-            <p className="text-xs text-gray-400 mt-2">
-              Camera off
-            </p>
-
+            <p className="text-xs text-gray-400 mt-2">Camera off</p>
           </div>
-
         )}
 
         {/* =================================================
@@ -737,7 +611,6 @@ const ActiveCall = ({
             <Maximize2 className="w-3 h-3 text-gray-800" />
           </div>
         </div>
-
       </div>
 
       {/* =====================================================
@@ -745,29 +618,17 @@ const ActiveCall = ({
       ====================================================== */}
 
       <div className="absolute bottom-0 left-0 right-0 pb-8 pt-16 bg-gradient-to-t from-black/90 to-transparent z-[10000]">
-
         <div className="flex justify-center items-center gap-4">
-
           {/* MUTE */}
 
           <button
             onClick={handleToggleMute}
             className={`w-14 h-14 rounded-full flex items-center justify-center ${
-              isMuted
-                ? "bg-red-500"
-                : "bg-white/15 backdrop-blur-md"
+              isMuted ? "bg-red-500" : "bg-white/15 backdrop-blur-md"
             }`}
-            title={
-              isMuted
-                ? "Unmute"
-                : "Mute"
-            }
+            title={isMuted ? "Unmute" : "Mute"}
           >
-            {isMuted ? (
-              <MicOff />
-            ) : (
-              <Mic />
-            )}
+            {isMuted ? <MicOff /> : <Mic />}
           </button>
 
           {/* CAMERA */}
@@ -775,21 +636,11 @@ const ActiveCall = ({
           <button
             onClick={handleToggleCamera}
             className={`w-14 h-14 rounded-full flex items-center justify-center ${
-              isCameraOff
-                ? "bg-red-500"
-                : "bg-white/15 backdrop-blur-md"
+              isCameraOff ? "bg-red-500" : "bg-white/15 backdrop-blur-md"
             }`}
-            title={
-              isCameraOff
-                ? "Turn camera on"
-                : "Turn camera off"
-            }
+            title={isCameraOff ? "Turn camera on" : "Turn camera off"}
           >
-            {isCameraOff ? (
-              <VideoOff />
-            ) : (
-              <Video />
-            )}
+            {isCameraOff ? <VideoOff /> : <Video />}
           </button>
 
           {/* END CALL */}
@@ -801,11 +652,8 @@ const ActiveCall = ({
           >
             <PhoneOff className="w-7 h-7" />
           </button>
-
         </div>
-
       </div>
-
     </div>
   );
 };
