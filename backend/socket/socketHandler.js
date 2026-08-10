@@ -70,18 +70,16 @@ export const initializeSocket = (httpServer) => {
     // RINGING
     // ==================================================
 
+    // backend socket.js
     socket.on("call-ringing", ({ callerId }) => {
-      console.log("🔔 CALL RINGING →", callerId);
+      console.log(`🔔 Relaying ringing status to callerId: ${callerId}`);
 
-      const callerSocket = onlineUsers.get(callerId);
+      const callerSocketId = onlineUsers.get(callerId);
 
-      if (!callerSocket) {
-        return;
+      if (callerSocketId) {
+        io.to(callerSocketId).emit("user-ringing");
       }
-
-      io.to(callerSocket).emit("call-ringing");
     });
-
     // ==================================================
     // CANCEL CALL
     // ==================================================
