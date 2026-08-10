@@ -72,10 +72,68 @@ const CallManager = ({ children }) => {
   // =========================================================
   // REMOTE USER ID
   // =========================================================
-
+  //
   const getRemoteUserId = useCallback(() => {
     return remoteUser?.id || remoteUser?._id || null;
   }, [remoteUser]);
+  //
+  const hangUpCall = useCallback(() => {
+    const receiverId = getRemoteUserId();
+
+    console.log("=================================");
+    console.log("📴 ENDING CALL");
+    console.log("Call state:", callState);
+    console.log("Remote user:", remoteUser);
+    console.log("Receiver ID:", receiverId);
+    console.log("=================================");
+
+    if (receiverId) {
+      // ============================================
+      // CALL HAS NOT BEEN ACCEPTED
+      // ============================================
+
+      if (callState === "calling" || callState === "ringing") {
+        console.log("📤 Sending CALL CANCELLED →", receiverId);
+
+        socket.emit("cancel-call", {
+          receiverId,
+        });
+      }
+
+      // ============================================
+      // CALL IS ALREADY ACTIVE
+      // ============================================
+      else if (callState === "connected") {
+        console.log("📤 Sending CALL ENDED →", receiverId);
+
+        socket.emit("end-call", {
+          receiverId,
+        });
+      }
+
+      // ============================================
+      // INCOMING SIDE
+      // ============================================
+      else if (callState === "incoming") {
+        console.log("📤 Sending CALL CANCELLED →", receiverId);
+
+        socket.emit("cancel-call", {
+          receiverId,
+        });
+      }
+    }
+
+    // ============================================
+    // CLEAN OUR SIDE IMMEDIATELY
+    // ============================================
+
+    endWebRTC();
+    resetCallUI();
+
+    console.log("✅ OUR CALL UI CLOSED");
+  }, [callState, remoteUser, getRemoteUserId, endWebRTC, resetCallUI]);
+
+
 
   // =========================================================
   // REGISTER WEBRTC CONTROLS
@@ -186,6 +244,13 @@ const CallManager = ({ children }) => {
             },
           );
 
+          break;
+        }
+        case "CALL_CANCELLED": {
+          console.log("❌ Received CALL_CANCELLED event");
+          endWebRTC();
+          resetCallUI();
+          toast.dismiss();
           break;
         }
 
@@ -329,30 +394,6 @@ const CallManager = ({ children }) => {
   // =========================================================
   // END CALL — IMPORTANT
   // =========================================================
-
-  const hangUpCall = useCallback(() => {
-    const receiverId = getRemoteUserId();
-
-    console.log("📴 ENDING CALL");
-
-    console.log("Remote user:", remoteUser);
-
-    console.log("Receiver ID:", receiverId);
-
-    // Tell other participant
-    if (receiverId) {
-      socket.emit("end-call", {
-        receiverId,
-      });
-
-      console.log("📤 CALL END SIGNAL SENT →", receiverId);
-    }
-
-    // Clean our side
-    endWebRTC();
-
-    resetCallUI();
-  }, [getRemoteUserId, remoteUser, endWebRTC, resetCallUI]);
 
   // =========================================================
   // SOCKET CALL EVENTS
@@ -675,7 +716,7 @@ const CallManager = ({ children }) => {
       {children}
 
       {(callState === "calling" || callState === "ringing") && (
-        <CallingScreen />
+        <CallingScreen onCancel={hangUpCall}/>
       )}
 
       {callState === "incoming" && <IncomingCallModal />}

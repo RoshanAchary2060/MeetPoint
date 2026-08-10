@@ -1,9 +1,4 @@
-import {
-  createContext,
-  useContext,
-  useRef,
-  useState,
-} from "react";
+import { createContext, useContext, useRef, useState } from "react";
 
 const CallContext = createContext();
 
@@ -22,18 +17,15 @@ export const CallProvider = ({ children }) => {
 
   const [remoteUser, setRemoteUser] = useState(null);
 
-  const [remoteStream, setRemoteStream] =
-    useState(null);
+  const [remoteStream, setRemoteStream] = useState(null);
 
-  const [localStream, setLocalStream] =
-    useState(null);
+  const [localStream, setLocalStream] = useState(null);
 
-  const [callType, setCallType] =
-    useState(null);
+  const [callType, setCallType] = useState(null);
 
-  // ==================================================
+  // =========================================================
   // NEGOTIATION LOCK
-  // ==================================================
+  // =========================================================
 
   const negotiationStarted = useRef(false);
 
@@ -49,9 +41,9 @@ export const CallProvider = ({ children }) => {
     negotiationStarted.current = false;
   };
 
-  // ==================================================
+  // =========================================================
   // WEBRTC CONTROLS
-  // ==================================================
+  // =========================================================
 
   const webrtcControlsRef = useRef({
     endCall: () => {},
@@ -66,11 +58,21 @@ export const CallProvider = ({ children }) => {
     };
   };
 
-  // ==================================================
-  // RESET CALL UI
-  // ==================================================
+  // =========================================================
+  // RESET CALL
+  // =========================================================
+  //
+  // THIS FUNCTION ONLY RESETS REACT CALL STATE.
+  //
+  // It does NOT call WebRTC.
+  // It does NOT emit socket events.
+  //
+  // This is important for remote events.
+  // =========================================================
 
   const resetCall = () => {
+    console.log("🧹 RESETTING CALL CONTEXT");
+
     negotiationStarted.current = false;
 
     setRemoteUser(null);
@@ -80,12 +82,24 @@ export const CallProvider = ({ children }) => {
     setCallState("idle");
   };
 
-  // ==================================================
-  // END CALL
-  // ==================================================
+  // =========================================================
+  // END CALL LOCALLY
+  // =========================================================
+  //
+  // This is used when the LOCAL user presses End Call.
+  //
+  // WebRTC cleanup happens here.
+  // UI state is then reset.
+  // =========================================================
 
   const endCall = () => {
-    webrtcControlsRef.current.endCall();
+    console.log("📴 LOCAL END CALL");
+
+    try {
+      webrtcControlsRef.current.endCall();
+    } catch (error) {
+      console.error("❌ WebRTC cleanup failed:", error);
+    }
 
     resetCall();
   };
@@ -93,6 +107,10 @@ export const CallProvider = ({ children }) => {
   return (
     <CallContext.Provider
       value={{
+        // =====================================================
+        // STATE
+        // =====================================================
+
         callState,
         setCallState,
 
@@ -108,11 +126,23 @@ export const CallProvider = ({ children }) => {
         callType,
         setCallType,
 
+        // =====================================================
+        // NEGOTIATION
+        // =====================================================
+
         startNegotiation,
         isNegotiationStarted,
         resetNegotiationLock,
 
+        // =====================================================
+        // WEBRTC
+        // =====================================================
+
         registerWebRTCControls,
+
+        // =====================================================
+        // CALL CONTROL
+        // =====================================================
 
         resetCall,
         endCall,
