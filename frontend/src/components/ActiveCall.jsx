@@ -576,10 +576,16 @@ const ActiveCall = ({
             ref={remoteVideoRef}
             autoPlay
             playsInline
-            muted={false}
-            disablePictureInPicture
             controls={false}
-            className="w-full h-full object-cover bg-black pointer-events-none select-none"
+            className="
+              absolute
+              inset-0
+              w-full
+              h-full
+              object-contain
+              bg-black
+              pointer-events-none
+            "
           />
 
         ) : (
