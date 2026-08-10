@@ -4,57 +4,56 @@ import { useAuth } from "@clerk/clerk-react";
 import { useCall } from "../context/callContext";
 import api from "../api/axios";
 
-const CallingScreen = () => {
+const CallingScreen = ({ onCancel }) => {
   const { getToken } = useAuth();
 
-  const {
-    callState,
-    remoteUser,
-    callType,
-    endCall,
-  } = useCall();
+  const { callState, remoteUser, callType } = useCall();
 
-  if (
-    callState !== "calling" &&
-    callState !== "ringing"
-  ) {
+  if (callState !== "calling" && callState !== "ringing") {
     return null;
   }
 
-  const targetUserId =
-    remoteUser?.id ||
-    remoteUser?._id;
+  const targetUserId = remoteUser?.id || remoteUser?._id;
 
-  const cancelCall = async () => {
-    if (targetUserId) {
-      // 💡 Emit directly over socket to notify B instantly
-      socket.emit("cancel-call", { receiverId: targetUserId });
-
-      try {
-        const token = await getToken();
-        await api.post("/api/call/cancel", { to_user_id: targetUserId }, { ... });
-      } catch (error) {
-        console.error("Cancel call error:", error);
-      }
+  const handleCancelCall = async () => {
+    // 1. Send socket event to notify B immediately and clear local WebRTC UI
+    if (onCancel) {
+      onCancel();
     }
 
-    endCall();
+    // 2. Notify backend API
+    try {
+      const token = await getToken();
+
+      if (targetUserId) {
+        await api.post(
+          "/api/call/cancel",
+          {
+            to_user_id: targetUserId,
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+      }
+    } catch (error) {
+      console.error("Cancel call error:", error);
+    }
+
     toast("Call cancelled");
   };
+
   return (
     <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/30 backdrop-blur-sm">
-
       <div className="w-96 rounded-3xl bg-white shadow-2xl p-8 text-center">
-
         <img
           src={
             remoteUser?.profile_picture ||
             "https://placehold.co/120x120?text=User"
           }
-          alt={
-            remoteUser?.full_name ||
-            "User"
-          }
+          alt={remoteUser?.full_name || "User"}
           className="w-28 h-28 rounded-full object-cover mx-auto border-4 border-indigo-500 shadow-lg"
         />
 
@@ -62,29 +61,19 @@ const CallingScreen = () => {
           {remoteUser?.full_name}
         </h2>
 
-        <p className="text-gray-500 mt-1">
-          @{remoteUser?.username}
-        </p>
+        <p className="text-gray-500 mt-1">@{remoteUser?.username}</p>
 
         <p className="text-gray-500 mt-3">
-          {callType === "video"
-            ? "📹"
-            : "📞"}
-
-          {" "}
-
-          {callState === "calling"
-            ? "Calling..."
-            : "🔔 Ringing..."}
+          {callType === "video" ? "📹" : "📞"}{" "}
+          {callState === "calling" ? "Calling..." : "🔔 Ringing..."}
         </p>
 
         <button
-          onClick={cancelCall}
+          onClick={handleCancelCall}
           className="mt-10 w-full rounded-xl bg-red-500 py-3 text-lg font-semibold text-white transition hover:bg-red-600 active:scale-95"
         >
           End Call
         </button>
-
       </div>
     </div>
   );

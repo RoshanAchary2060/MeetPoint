@@ -278,7 +278,6 @@ export const rejectAudioCall = async (req, res) => {
 export const cancelCall = async (req, res) => {
   try {
     const fromUserId = getUserIdFromReq(req);
-
     const { to_user_id } = req.body;
 
     if (!fromUserId || !to_user_id) {
@@ -290,14 +289,20 @@ export const cancelCall = async (req, res) => {
 
     await PendingCall.deleteOne({
       callerId: fromUserId,
-
       receiverId: to_user_id.toString(),
     });
 
+    // 1. Keep your SSE event if needed elsewhere
     sendEventToUser(to_user_id.toString(), {
       type: "CALL_CANCELLED",
       by_user_id: fromUserId,
     });
+
+    // 2. 💡 ADD THIS: Emit Socket Event to receiver
+    const receiverSocketId = onlineUsers.get(to_user_id.toString());
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit("call-cancelled");
+    }
 
     return res.json({
       success: true,
@@ -312,7 +317,6 @@ export const cancelCall = async (req, res) => {
     });
   }
 };
-
 // =========================================================
 // WEBRTC OFFER
 // =========================================================
