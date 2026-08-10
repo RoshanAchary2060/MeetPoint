@@ -1,66 +1,89 @@
 import { useEffect, useRef, useState } from "react";
-
-import {
-  Mic,
-  MicOff,
-  Video,
-  VideoOff,
-  PhoneOff,
-  User,
-  Move,
-  Maximize2,
-} from "lucide-react";
-
-import { useCall } from "../context/callContext";
-import socket from "../socket/socket";
+import { Mic, MicOff, Video, VideoOff, PhoneOff, Grip } from "lucide-react";
 
 const ActiveCall = ({
   toggleMute,
   toggleCamera,
   localVideoRef,
   remoteVideoRef,
+  callType = "audio",
 }) => {
-  const {
-    callState,
-    remoteUser,
-    localStream,
-    remoteStream,
-    callType,
-    endCall,
-    setCallState,
-    setRemoteUser,
-  } = useCall();
+  // =========================================================
+  // TIMER
+  // =========================================================
 
-  const [isMuted, setIsMuted] = useState(false);
-  const [isCameraOff, setIsCameraOff] = useState(false);
   const [seconds, setSeconds] = useState(0);
 
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setSeconds((prev) => prev + 1);
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  const formatTime = () => {
+    const minutes = Math.floor(seconds / 60)
+      .toString()
+      .padStart(2, "0");
+
+    const secs = (seconds % 60).toString().padStart(2, "0");
+
+    return `${minutes}:${secs}`;
+  };
+
   // =========================================================
-  // LOCAL PREVIEW POSITION + SIZE
+  // STATE
+  // =========================================================
+
+  const [muted, setMuted] = useState(false);
+  const [cameraOff, setCameraOff] = useState(false);
+
+  // =========================================================
+  // VIDEO STAGE
+  // =========================================================
+
+  const stageRef = useRef(null);
+  const localContainerRef = useRef(null);
+
+  // =========================================================
+  // LOCAL VIDEO POSITION
   // =========================================================
 
   const [localPosition, setLocalPosition] = useState({
-    x: 0,
-    y: 0,
+    x: 24,
+    y: 24,
   });
+
+  // =========================================================
+  // LOCAL VIDEO SIZE
+  // =========================================================
 
   const [localSize, setLocalSize] = useState({
-    width: 220,
-    height: 280,
+    width: 240,
+    height: 150,
   });
 
-  const localPreviewRef = useRef(null);
+  // =========================================================
+  // DRAGGING
+  // =========================================================
 
   const dragRef = useRef({
     dragging: false,
+    pointerId: null,
     startX: 0,
     startY: 0,
     startLeft: 0,
     startTop: 0,
   });
 
+  // =========================================================
+  // RESIZING
+  // =========================================================
+
   const resizeRef = useRef({
     resizing: false,
+    pointerId: null,
     startX: 0,
     startY: 0,
     startWidth: 0,
@@ -68,738 +91,574 @@ const ActiveCall = ({
   });
 
   // =========================================================
-  // TIMER
+  // DRAG START
   // =========================================================
 
-  useEffect(() => {
-    if (callState !== "connected") {
-      setSeconds(0);
+  const handleDragStart = (e) => {
+    // Don't start dragging when resizing.
+    if (e.target.dataset.resizeHandle === "true") {
       return;
     }
 
-    const interval = setInterval(() => {
-      setSeconds((prev) => prev + 1);
-    }, 1000);
+    const stage = stageRef.current;
 
-    return () => clearInterval(interval);
-  }, [callState]);
-
-  // =========================================================
-  // RESET UI
-  // =========================================================
-
-  useEffect(() => {
-    if (callState !== "connected") {
-      setIsMuted(false);
-      setIsCameraOff(false);
-      setSeconds(0);
-
-      setLocalPosition({
-        x: 0,
-        y: 0,
-      });
-
-      setLocalSize({
-        width: 220,
-        height: 280,
-      });
-    }
-  }, [callState]);
-
-  // =========================================================
-  // LOCAL VIDEO
-  // =========================================================
-
-  useEffect(() => {
-    if (
-      callType !== "video" ||
-      !localVideoRef?.current ||
-      !localStream
-    ) {
+    if (!stage) {
       return;
     }
 
-    const video = localVideoRef.current;
-
-    if (video.srcObject !== localStream) {
-      video.srcObject = localStream;
-    }
-
-    video.play().catch((error) => {
-      console.log(
-        "Local video autoplay prevented:",
-        error,
-      );
-    });
-
-    return () => {
-      if (video.srcObject === localStream) {
-        video.srcObject = null;
-      }
+    dragRef.current = {
+      dragging: true,
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      startLeft: localPosition.x,
+      startTop: localPosition.y,
     };
-  }, [callType, localStream, localVideoRef]);
 
-  // =========================================================
-  // REMOTE VIDEO
-  // =========================================================
+    e.currentTarget.setPointerCapture?.(e.pointerId);
 
-  useEffect(() => {
-    if (
-      callType !== "video" ||
-      !remoteVideoRef?.current ||
-      !remoteStream
-    ) {
-      return;
-    }
-
-    const video = remoteVideoRef.current;
-
-    if (video.srcObject !== remoteStream) {
-      video.srcObject = remoteStream;
-    }
-
-    video.play().catch((error) => {
-      console.log(
-        "Remote video autoplay prevented:",
-        error,
-      );
-    });
-
-    return () => {
-      if (video.srcObject === remoteStream) {
-        video.srcObject = null;
-      }
-    };
-  }, [callType, remoteStream, remoteVideoRef]);
-
-  // =========================================================
-  // TIMER FORMAT
-  // =========================================================
-
-  const formatTime = () => {
-    const minutes = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-
-    return `${String(minutes).padStart(2, "0")}:${String(
-      secs,
-    ).padStart(2, "0")}`;
+    e.preventDefault();
   };
 
   // =========================================================
-  // END CALL
+  // DRAG MOVE
   // =========================================================
 
-  const handleEndCall = () => {
-    const targetId =
-      remoteUser?._id ||
-      remoteUser?.id ||
-      remoteUser;
-
-    console.log(
-      "📴 Sending END CALL signal to target ID:",
-      targetId,
-    );
-
-    if (targetId && socket) {
-      socket.emit("end-call", {
-        receiverId: targetId,
-      });
+  const handleDragMove = (e) => {
+    if (!dragRef.current.dragging) {
+      return;
     }
 
-    // Local cleanup
-    endCall();
+    if (e.pointerId !== dragRef.current.pointerId) {
+      return;
+    }
 
-    setCallState("idle");
+    const stage = stageRef.current;
 
-    setRemoteUser(null);
+    if (!stage) {
+      return;
+    }
+
+    const stageRect = stage.getBoundingClientRect();
+
+    const deltaX = e.clientX - dragRef.current.startX;
+
+    const deltaY = e.clientY - dragRef.current.startY;
+
+    let newX = dragRef.current.startLeft + deltaX;
+
+    let newY = dragRef.current.startTop + deltaY;
+
+    // -------------------------------------------------------
+    // Keep local video inside stage
+    // -------------------------------------------------------
+
+    const maxX = stageRect.width - localSize.width;
+
+    const maxY = stageRect.height - localSize.height;
+
+    newX = Math.max(0, Math.min(newX, maxX));
+
+    newY = Math.max(0, Math.min(newY, maxY));
+
+    setLocalPosition({
+      x: newX,
+      y: newY,
+    });
+  };
+
+  // =========================================================
+  // DRAG END
+  // =========================================================
+
+  const handleDragEnd = (e) => {
+    if (
+      dragRef.current.pointerId !== null &&
+      e.pointerId !== dragRef.current.pointerId
+    ) {
+      return;
+    }
+
+    dragRef.current.dragging = false;
+    dragRef.current.pointerId = null;
+  };
+
+  // =========================================================
+  // RESIZE START
+  // =========================================================
+
+  const handleResizeStart = (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+
+    resizeRef.current = {
+      resizing: true,
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      startWidth: localSize.width,
+      startHeight: localSize.height,
+    };
+
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+  };
+
+  // =========================================================
+  // RESIZE MOVE
+  // =========================================================
+
+  const handleResizeMove = (e) => {
+    if (!resizeRef.current.resizing) {
+      return;
+    }
+
+    if (e.pointerId !== resizeRef.current.pointerId) {
+      return;
+    }
+
+    const stage = stageRef.current;
+
+    if (!stage) {
+      return;
+    }
+
+    const stageRect = stage.getBoundingClientRect();
+
+    const deltaX = e.clientX - resizeRef.current.startX;
+
+    const deltaY = e.clientY - resizeRef.current.startY;
+
+    // -------------------------------------------------------
+    // Maintain approximately 16:10 aspect ratio
+    // -------------------------------------------------------
+
+    const aspectRatio =
+      resizeRef.current.startWidth / resizeRef.current.startHeight;
+
+    let newWidth = resizeRef.current.startWidth + deltaX;
+
+    let newHeight = newWidth / aspectRatio;
+
+    // -------------------------------------------------------
+    // Minimum size
+    // -------------------------------------------------------
+
+    const minWidth = 140;
+    const minHeight = 90;
+
+    newWidth = Math.max(minWidth, newWidth);
+
+    newHeight = Math.max(minHeight, newHeight);
+
+    // -------------------------------------------------------
+    // Maximum size
+    // -------------------------------------------------------
+
+    const maxWidth = stageRect.width * 0.55;
+
+    const maxHeight = stageRect.height * 0.55;
+
+    newWidth = Math.min(newWidth, maxWidth);
+
+    newHeight = Math.min(newHeight, maxHeight);
+
+    // -------------------------------------------------------
+    // Don't allow the card to go outside stage
+    // -------------------------------------------------------
+
+    const maxX = stageRect.width - newWidth;
+
+    const maxY = stageRect.height - newHeight;
+
+    setLocalPosition((prev) => ({
+      x: Math.min(prev.x, Math.max(0, maxX)),
+      y: Math.min(prev.y, Math.max(0, maxY)),
+    }));
+
+    setLocalSize({
+      width: newWidth,
+      height: newHeight,
+    });
+  };
+
+  // =========================================================
+  // RESIZE END
+  // =========================================================
+
+  const handleResizeEnd = (e) => {
+    if (
+      resizeRef.current.pointerId !== null &&
+      e.pointerId !== resizeRef.current.pointerId
+    ) {
+      return;
+    }
+
+    resizeRef.current.resizing = false;
+    resizeRef.current.pointerId = null;
   };
 
   // =========================================================
   // MUTE
   // =========================================================
 
-  const handleToggleMute = () => {
-    const nextMuted = !isMuted;
+  const handleMute = () => {
+    toggleMute?.();
 
-    setIsMuted(nextMuted);
-
-    toggleMute?.(nextMuted);
+    setMuted((prev) => !prev);
   };
 
   // =========================================================
   // CAMERA
   // =========================================================
 
-  const handleToggleCamera = () => {
-    if (callType !== "video") {
-      return;
-    }
+  const handleCamera = () => {
+    toggleCamera?.();
 
-    const nextCameraOff = !isCameraOff;
-
-    setIsCameraOff(nextCameraOff);
-
-    toggleCamera?.(nextCameraOff);
+    setCameraOff((prev) => !prev);
   };
 
   // =========================================================
-  // LOCAL PREVIEW DRAG
-  // =========================================================
-
-  const handleDragStart = (event) => {
-    event.preventDefault();
-
-    const preview = localPreviewRef.current;
-
-    if (!preview) {
-      return;
-    }
-
-    const rect = preview.getBoundingClientRect();
-
-    dragRef.current = {
-      dragging: true,
-      startX: event.clientX,
-      startY: event.clientY,
-      startLeft: rect.left,
-      startTop: rect.top,
-    };
-
-    document.body.style.userSelect = "none";
-  };
-
-  // =========================================================
-  // LOCAL PREVIEW RESIZE
-  // =========================================================
-
-  const handleResizeStart = (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-
-    resizeRef.current = {
-      resizing: true,
-      startX: event.clientX,
-      startY: event.clientY,
-      startWidth: localSize.width,
-      startHeight: localSize.height,
-    };
-
-    document.body.style.userSelect = "none";
-  };
-
-  // =========================================================
-  // DRAG + RESIZE MOVE
-  // =========================================================
-
-  useEffect(() => {
-    const handlePointerMove = (event) => {
-      // =====================================================
-      // DRAGGING
-      // =====================================================
-
-      if (dragRef.current.dragging) {
-        const dx =
-          event.clientX -
-          dragRef.current.startX;
-
-        const dy =
-          event.clientY -
-          dragRef.current.startY;
-
-        const newLeft =
-          dragRef.current.startLeft + dx;
-
-        const newTop =
-          dragRef.current.startTop + dy;
-
-        const preview =
-          localPreviewRef.current;
-
-        if (!preview) {
-          return;
-        }
-
-        const previewWidth =
-          preview.offsetWidth;
-
-        const previewHeight =
-          preview.offsetHeight;
-
-        const maxLeft =
-          window.innerWidth -
-          previewWidth;
-
-        const maxTop =
-          window.innerHeight -
-          previewHeight;
-
-        const boundedLeft = Math.max(
-          0,
-          Math.min(newLeft, maxLeft),
-        );
-
-        const boundedTop = Math.max(
-          0,
-          Math.min(newTop, maxTop),
-        );
-
-        setLocalPosition({
-          x: boundedLeft,
-          y: boundedTop,
-        });
-      }
-
-      // =====================================================
-      // RESIZING
-      // =====================================================
-
-      if (resizeRef.current.resizing) {
-        const dx =
-          event.clientX -
-          resizeRef.current.startX;
-
-        const dy =
-          event.clientY -
-          resizeRef.current.startY;
-
-        const newWidth = Math.max(
-          140,
-          Math.min(
-            resizeRef.current.startWidth + dx,
-            500,
-          ),
-        );
-
-        const newHeight = Math.max(
-          180,
-          Math.min(
-            resizeRef.current.startHeight + dy,
-            600,
-          ),
-        );
-
-        setLocalSize({
-          width: newWidth,
-          height: newHeight,
-        });
-      }
-    };
-
-    const handlePointerUp = () => {
-      dragRef.current.dragging = false;
-      resizeRef.current.resizing = false;
-
-      document.body.style.userSelect = "";
-    };
-
-    window.addEventListener(
-      "pointermove",
-      handlePointerMove,
-    );
-
-    window.addEventListener(
-      "pointerup",
-      handlePointerUp,
-    );
-
-    return () => {
-      window.removeEventListener(
-        "pointermove",
-        handlePointerMove,
-      );
-
-      window.removeEventListener(
-        "pointerup",
-        handlePointerUp,
-      );
-
-      document.body.style.userSelect = "";
-    };
-  }, [localSize.width, localSize.height]);
-
-  // =========================================================
-  // KEEP LOCAL PREVIEW INSIDE WINDOW AFTER RESIZE
-  // =========================================================
-
-  useEffect(() => {
-    const keepInsideWindow = () => {
-      const preview =
-        localPreviewRef.current;
-
-      if (!preview) {
-        return;
-      }
-
-      const rect =
-        preview.getBoundingClientRect();
-
-      const maxLeft =
-        window.innerWidth -
-        rect.width;
-
-      const maxTop =
-        window.innerHeight -
-        rect.height;
-
-      setLocalPosition((previous) => ({
-        x: Math.max(
-          0,
-          Math.min(previous.x, maxLeft),
-        ),
-        y: Math.max(
-          0,
-          Math.min(previous.y, maxTop),
-        ),
-      }));
-    };
-
-    window.addEventListener(
-      "resize",
-      keepInsideWindow,
-    );
-
-    return () => {
-      window.removeEventListener(
-        "resize",
-        keepInsideWindow,
-      );
-    };
-  }, []);
-
-  // =========================================================
-  // NOT ACTIVE
-  // =========================================================
-
-  if (callState !== "connected") {
-    return null;
-  }
-
-  // =========================================================
-  // AUDIO CALL UI
+  // AUDIO CALL
   // =========================================================
 
   if (callType === "audio") {
     return (
-      <div className="fixed inset-0 z-[9997] bg-gray-950 text-white flex flex-col items-center justify-center">
-        <div className="flex flex-col items-center">
+      <div className="fixed inset-0 z-[9999] bg-[#020617] text-white flex flex-col">
+        {/* =================================================
+            HEADER
+        ================================================= */}
 
-          {/* PROFILE */}
+        <div className="absolute top-6 left-6 z-20">
+          <h2 className="text-lg font-semibold">Active Call</h2>
 
-          <div className="w-32 h-32 rounded-full bg-gray-800 flex items-center justify-center overflow-hidden border-4 border-white/10">
+          <p className="text-sm text-gray-400">Connected • {formatTime()}</p>
+        </div>
 
-            {remoteUser?.profile_picture ? (
-              <img
-                src={remoteUser.profile_picture}
-                alt={remoteUser.full_name}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <User className="w-14 h-14 text-gray-400" />
-            )}
+        {/* =================================================
+            AUDIO AREA
+        ================================================= */}
 
+        <div className="flex-1 flex items-center justify-center">
+          <div className="w-32 h-32 rounded-full bg-gray-800 flex items-center justify-center">
+            <div className="w-24 h-24 rounded-full bg-gray-700 flex items-center justify-center text-3xl">
+              🎧
+            </div>
           </div>
+        </div>
 
-          {/* NAME */}
+        {/* =================================================
+            CONTROLS
+        ================================================= */}
 
-          <h2 className="mt-6 text-2xl font-semibold">
-            {remoteUser?.full_name ||
-              "MeetPoint User"}
-          </h2>
+        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex items-center gap-5">
+          <button
+            onClick={handleMute}
+            className={`
+              w-14
+              h-14
+              rounded-full
+              flex
+              items-center
+              justify-center
+              transition
+              ${muted ? "bg-white text-black" : "bg-gray-800 hover:bg-gray-700"}
+            `}
+          >
+            {muted ? <MicOff size={23} /> : <Mic size={23} />}
+          </button>
 
-          {/* TIMER */}
-
-          <p className="text-gray-400 mt-2">
-            Connected • {formatTime()}
-          </p>
-
-          {/* CONTROLS */}
-
-          <div className="mt-10 flex items-center gap-4">
-
-            {/* MUTE */}
-
-            <button
-              onClick={handleToggleMute}
-              className={`w-14 h-14 rounded-full flex items-center justify-center ${
-                isMuted
-                  ? "bg-red-500"
-                  : "bg-white/15"
-              }`}
-              title={
-                isMuted
-                  ? "Unmute"
-                  : "Mute"
+          <button
+            onClick={handleCamera}
+            className={`
+              w-14
+              h-14
+              rounded-full
+              flex
+              items-center
+              justify-center
+              transition
+              ${
+                cameraOff
+                  ? "bg-white text-black"
+                  : "bg-gray-800 hover:bg-gray-700"
               }
-            >
-              {isMuted ? (
-                <MicOff />
-              ) : (
-                <Mic />
-              )}
-            </button>
-
-            {/* END CALL */}
-
-            <button
-              onClick={handleEndCall}
-              className="w-16 h-16 rounded-full bg-red-600 hover:bg-red-700 flex items-center justify-center"
-              title="End call"
-            >
-              <PhoneOff className="w-7 h-7" />
-            </button>
-
-          </div>
+            `}
+          >
+            {cameraOff ? <VideoOff size={23} /> : <Video size={23} />}
+          </button>
         </div>
       </div>
     );
   }
 
   // =========================================================
-  // VIDEO CALL UI
+  // VIDEO CALL
   // =========================================================
 
   return (
-    <div className="fixed inset-0 z-[9997] bg-gray-950 text-white overflow-hidden">
+    <div
+      ref={stageRef}
+      className="
+        fixed
+        inset-0
+        z-[9999]
+        bg-black
+        overflow-hidden
+        select-none
+      "
+    >
+      {/* =====================================================
+          REMOTE VIDEO — LARGE / FIXED
+      ===================================================== */}
+
+      <video
+        ref={remoteVideoRef}
+        autoPlay
+        playsInline
+        muted={false}
+        controls={false}
+        disablePictureInPicture
+        disableRemotePlayback
+        className="
+          absolute
+          inset-0
+          w-full
+          h-full
+          object-contain
+          bg-black
+          pointer-events-none
+        "
+      />
 
       {/* =====================================================
-          REMOTE VIDEO
-          FIXED — NOT DRAGGABLE
-          NOT RESIZABLE
-      ====================================================== */}
-
-      <div className="absolute inset-0 flex items-center justify-center bg-gray-950 pointer-events-none">
-
-        {remoteStream &&
-        remoteStream.getVideoTracks().length > 0 ? (
-
-          <video
-            ref={remoteVideoRef}
-            autoPlay
-            playsInline
-            muted={false}
-            disablePictureInPicture
-            controls={false}
-            className="w-full h-full object-cover bg-black pointer-events-none select-none"
-          />
-
-        ) : (
-
-          <div className="flex flex-col items-center justify-center">
-
-            <div className="w-28 h-28 rounded-full bg-gray-800 flex items-center justify-center overflow-hidden">
-
-              {remoteUser?.profile_picture ? (
-                <img
-                  src={remoteUser.profile_picture}
-                  alt={remoteUser.full_name}
-                  className="w-full h-full object-cover"
-                  draggable={false}
-                />
-              ) : (
-                <User className="w-12 h-12 text-gray-400" />
-              )}
-
-            </div>
-
-            <p className="mt-5 text-xl font-semibold">
-              {remoteUser?.full_name ||
-                "User"}
-            </p>
-
-            <p className="text-sm text-gray-400 mt-1">
-              Camera unavailable
-            </p>
-
-          </div>
-        )}
-
-      </div>
-
-      {/* =====================================================
-          TOP INFO
-      ====================================================== */}
-
-      <div className="absolute top-0 left-0 right-0 p-5 bg-gradient-to-b from-black/70 to-transparent pointer-events-none">
-
-        <div className="flex items-center justify-between">
-
-          <div>
-            <h2 className="font-semibold text-lg">
-              {remoteUser?.full_name ||
-                "MeetPoint User"}
-            </h2>
-
-            <p className="text-sm text-gray-300">
-              Connected • {formatTime()}
-            </p>
-          </div>
-
-          <div className="px-3 py-1 rounded-full bg-black/40 backdrop-blur-md text-xs">
-            MeetPoint
-          </div>
-
-        </div>
-
-      </div>
-
-      {/* =====================================================
-          LOCAL PREVIEW
-
-          DRAGGABLE + RESIZABLE
-
-          THIS IS THE ONLY MOVABLE VIDEO
-      ====================================================== */}
+          TOP LEFT INFORMATION
+      ===================================================== */}
 
       <div
-        ref={localPreviewRef}
-        className="fixed rounded-2xl overflow-hidden bg-gray-900 border border-white/20 shadow-2xl z-[9999]"
+        className="
+          absolute
+          top-6
+          left-6
+          z-30
+          pointer-events-none
+        "
+      >
+        <h2 className="text-lg font-semibold text-white">Active Call</h2>
+
+        <p className="text-sm text-gray-300">Connected • {formatTime()}</p>
+      </div>
+
+      {/* =====================================================
+          SMALL LOCAL VIDEO
+
+          THIS IS THE ONLY MOVABLE / RESIZABLE ELEMENT
+      ===================================================== */}
+
+      <div
+        ref={localContainerRef}
+        onPointerDown={handleDragStart}
+        onPointerMove={handleDragMove}
+        onPointerUp={handleDragEnd}
+        onPointerCancel={handleDragEnd}
         style={{
-          left: `${localPosition.x}px`,
-          top: `${localPosition.y}px`,
           width: `${localSize.width}px`,
           height: `${localSize.height}px`,
+          transform: `translate(${localPosition.x}px, ${localPosition.y}px)`,
           touchAction: "none",
         }}
+        className="
+          absolute
+          top-0
+          left-0
+          z-40
+          rounded-2xl
+          overflow-hidden
+          bg-gray-900
+          border
+          border-white/20
+          shadow-2xl
+          cursor-grab
+          active:cursor-grabbing
+        "
       >
+        {/* ===================================================
+            LOCAL VIDEO
+        =================================================== */}
 
-        {/* =================================================
-            DRAG HEADER
-        ================================================== */}
+        <video
+          ref={localVideoRef}
+          autoPlay
+          playsInline
+          muted
+          controls={false}
+          disablePictureInPicture
+          disableRemotePlayback
+          className="
+            w-full
+            h-full
+            object-cover
+            pointer-events-none
+          "
+        />
+
+        {/* ===================================================
+            YOU LABEL
+        =================================================== */}
 
         <div
-          onPointerDown={handleDragStart}
-          className="absolute top-0 left-0 right-0 h-10 z-20 flex items-center justify-between px-3 bg-gradient-to-b from-black/70 to-transparent cursor-move"
-          title="Drag your video"
+          className="
+            absolute
+            bottom-2
+            left-2
+            px-2
+            py-1
+            rounded-md
+            bg-black/60
+            text-white
+            text-[11px]
+            font-medium
+            pointer-events-none
+          "
         >
-          <div className="flex items-center gap-1.5 text-xs text-white/80">
-            <Move className="w-3.5 h-3.5" />
-            <span>You</span>
-          </div>
-        </div>
-
-        {/* =================================================
-            LOCAL VIDEO
-        ================================================== */}
-
-        {!isCameraOff ? (
-
-          <video
-            ref={localVideoRef}
-            autoPlay
-            muted
-            playsInline
-            disablePictureInPicture
-            controls={false}
-            draggable={false}
-            className="w-full h-full object-cover select-none pointer-events-none"
-          />
-
-        ) : (
-
-          <div className="w-full h-full flex flex-col items-center justify-center bg-gray-900">
-
-            <div className="w-14 h-14 rounded-full bg-gray-700 flex items-center justify-center">
-              <VideoOff className="w-7 h-7 text-gray-300" />
-            </div>
-
-            <p className="text-xs text-gray-400 mt-2">
-              Camera off
-            </p>
-
-          </div>
-
-        )}
-
-        {/* =================================================
-            LOCAL LABEL
-        ================================================== */}
-
-        <div className="absolute bottom-2 left-2 text-xs bg-black/50 px-2 py-1 rounded-md pointer-events-none">
           You
         </div>
 
-        {/* =================================================
-            RESIZE HANDLE
-        ================================================== */}
+        {/* ===================================================
+            DRAG INDICATOR
+        =================================================== */}
 
         <div
-          onPointerDown={handleResizeStart}
-          className="absolute bottom-0 right-0 z-30 w-7 h-7 cursor-nwse-resize flex items-end justify-end p-1"
-          title="Resize your video"
+          className="
+            absolute
+            top-2
+            left-1/2
+            -translate-x-1/2
+            text-white/50
+            pointer-events-none
+          "
         >
-          <div className="w-4 h-4 rounded-sm bg-white/80 shadow flex items-center justify-center">
-            <Maximize2 className="w-3 h-3 text-gray-800" />
-          </div>
+          <Grip size={18} />
         </div>
 
+        {/* ===================================================
+            RESIZE HANDLE
+
+            THIS CORNER RESIZES THE SMALL VIDEO
+            WITHOUT POPPING IT OUT.
+        =================================================== */}
+
+        <div
+          data-resize-handle="true"
+          onPointerDown={handleResizeStart}
+          onPointerMove={handleResizeMove}
+          onPointerUp={handleResizeEnd}
+          onPointerCancel={handleResizeEnd}
+          style={{
+            touchAction: "none",
+          }}
+          className="
+            absolute
+            right-0
+            bottom-0
+            w-7
+            h-7
+            cursor-nwse-resize
+            z-50
+          "
+        >
+          <div
+            className="
+              absolute
+              right-1
+              bottom-1
+              w-3
+              h-3
+              border-r-2
+              border-b-2
+              border-white/80
+              rounded-br-sm
+            "
+          />
+        </div>
       </div>
 
       {/* =====================================================
-          CONTROLS
-      ====================================================== */}
+          BOTTOM CONTROLS
+      ===================================================== */}
 
-      <div className="absolute bottom-0 left-0 right-0 pb-8 pt-16 bg-gradient-to-t from-black/90 to-transparent z-[10000]">
+      <div
+        className="
+          absolute
+          bottom-8
+          left-1/2
+          -translate-x-1/2
+          z-50
+          flex
+          items-center
+          gap-4
+        "
+      >
+        {/* ===================================================
+            MICROPHONE
+        =================================================== */}
 
-        <div className="flex justify-center items-center gap-4">
-
-          {/* MUTE */}
-
-          <button
-            onClick={handleToggleMute}
-            className={`w-14 h-14 rounded-full flex items-center justify-center ${
-              isMuted
-                ? "bg-red-500"
-                : "bg-white/15 backdrop-blur-md"
-            }`}
-            title={
-              isMuted
-                ? "Unmute"
-                : "Mute"
+        <button
+          onClick={handleMute}
+          className={`
+            w-14
+            h-14
+            rounded-full
+            flex
+            items-center
+            justify-center
+            transition-all
+            shadow-lg
+            ${
+              muted
+                ? "bg-white text-black"
+                : "bg-gray-800/90 text-white hover:bg-gray-700"
             }
-          >
-            {isMuted ? (
-              <MicOff />
-            ) : (
-              <Mic />
-            )}
-          </button>
+          `}
+        >
+          {muted ? <MicOff size={22} /> : <Mic size={22} />}
+        </button>
 
-          {/* CAMERA */}
+        {/* ===================================================
+            CAMERA
+        =================================================== */}
 
-          <button
-            onClick={handleToggleCamera}
-            className={`w-14 h-14 rounded-full flex items-center justify-center ${
-              isCameraOff
-                ? "bg-red-500"
-                : "bg-white/15 backdrop-blur-md"
-            }`}
-            title={
-              isCameraOff
-                ? "Turn camera on"
-                : "Turn camera off"
+        <button
+          onClick={handleCamera}
+          className={`
+            w-14
+            h-14
+            rounded-full
+            flex
+            items-center
+            justify-center
+            transition-all
+            shadow-lg
+            ${
+              cameraOff
+                ? "bg-white text-black"
+                : "bg-gray-800/90 text-white hover:bg-gray-700"
             }
-          >
-            {isCameraOff ? (
-              <VideoOff />
-            ) : (
-              <Video />
-            )}
-          </button>
+          `}
+        >
+          {cameraOff ? <VideoOff size={22} /> : <Video size={22} />}
+        </button>
 
-          {/* END CALL */}
+        {/* ===================================================
+            END CALL
 
-          <button
-            onClick={handleEndCall}
-            className="w-16 h-16 rounded-full bg-red-600 hover:bg-red-700 flex items-center justify-center"
-            title="End call"
-          >
-            <PhoneOff className="w-7 h-7" />
-          </button>
+            IMPORTANT:
+            We intentionally don't implement call ending here.
 
-        </div>
-
+            CallManager's registered endCall handler remains
+            responsible for ending WebRTC + notifying the
+            other user.
+        =================================================== */}
       </div>
-
     </div>
   );
 };
