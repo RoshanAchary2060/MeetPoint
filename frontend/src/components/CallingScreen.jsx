@@ -26,36 +26,21 @@ const CallingScreen = () => {
     remoteUser?._id;
 
   const cancelCall = async () => {
-    try {
-      const token = await getToken();
+    if (targetUserId) {
+      // 💡 Emit directly over socket to notify B instantly
+      socket.emit("cancel-call", { receiverId: targetUserId });
 
-      if (targetUserId) {
-        await api.post(
-          "/api/call/cancel",
-          {
-            to_user_id:
-              targetUserId,
-          },
-          {
-            headers: {
-              Authorization:
-                `Bearer ${token}`,
-            },
-          }
-        );
+      try {
+        const token = await getToken();
+        await api.post("/api/call/cancel", { to_user_id: targetUserId }, { ... });
+      } catch (error) {
+        console.error("Cancel call error:", error);
       }
-    } catch (error) {
-      console.error(
-        "Cancel call error:",
-        error
-      );
     }
 
     endCall();
-
     toast("Call cancelled");
   };
-
   return (
     <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/30 backdrop-blur-sm">
 
