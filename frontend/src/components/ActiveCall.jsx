@@ -6,15 +6,13 @@ const ActiveCall = ({
   localVideoRef,
   remoteVideoRef,
   onEndCall,
-  isMuted,
-  isCameraOff,
 }) => {
-  // 💡 State & Refs for internal PIP video dragging
-  const [position, setPosition] = useState({ x: 0, y: 0 });
+  // 💡 Dragging State for Local Video Overlay
+  const [position, setPosition] = useState({ x: 20, y: 20 }); // Position relative to bottom/right
   const isDragging = useRef(false);
   const dragStart = useRef({ x: 0, y: 0 });
 
-  // Handle Drag Start (Mouse & Touch)
+  // Mouse / Touch Start
   const handleDragStart = (e) => {
     isDragging.current = true;
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
@@ -26,7 +24,7 @@ const ActiveCall = ({
     };
   };
 
-  // Handle Dragging
+  // Mouse / Touch Move
   const handleDragMove = (e) => {
     if (!isDragging.current) return;
 
@@ -39,20 +37,20 @@ const ActiveCall = ({
     setPosition({ x: newX, y: newY });
   };
 
-  // Handle Drag End
+  // Mouse / Touch End
   const handleDragEnd = () => {
     isDragging.current = false;
   };
 
   return (
     <div
-      className="relative w-full h-screen bg-gray-950 overflow-hidden flex items-center justify-center select-none"
+      className="relative w-full h-screen bg-gray-900 overflow-hidden flex items-center justify-center"
       onMouseMove={handleDragMove}
       onMouseUp={handleDragEnd}
       onTouchMove={handleDragMove}
       onTouchEnd={handleDragEnd}
     >
-      {/* Remote Main Video Stream */}
+      {/* 📹 Remote Video Feed (Full Screen) */}
       <video
         ref={remoteVideoRef}
         autoPlay
@@ -60,14 +58,14 @@ const ActiveCall = ({
         className="w-full h-full object-contain bg-black"
       />
 
-      {/* 💡 Movable Initial In-App PIP Overlay */}
+      {/* 📹 Movable Local Video Feed */}
       <div
         onMouseDown={handleDragStart}
         onTouchStart={handleDragStart}
         style={{
-          transform: `translate3d(${position.x}px, ${position.y}px, 0)`,
+          transform: `translate(${position.x}px, ${position.y}px)`,
         }}
-        className="absolute top-12 right-12 z-50 w-48 h-32 md:w-56 md:h-36 bg-gray-900 rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl cursor-grab active:cursor-grabbing touch-none transition-shadow hover:border-indigo-500/50"
+        className="absolute top-4 left-4 z-50 w-32 h-48 md:w-40 md:h-56 bg-black rounded-2xl overflow-hidden border-2 border-white/50 shadow-2xl cursor-grab active:cursor-grabbing touch-none select-none transition-shadow hover:shadow-indigo-500/20"
       >
         <video
           ref={localVideoRef}
@@ -76,31 +74,27 @@ const ActiveCall = ({
           muted
           className="w-full h-full object-cover pointer-events-none"
         />
-
-        {/* Drag Indicator Handle */}
-        <div className="absolute top-2 left-1/2 -translate-x-1/2 w-8 h-1 bg-white/40 rounded-full pointer-events-none" />
       </div>
 
-      {/* Call Controls Bar */}
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-4 bg-gray-900/80 backdrop-blur-lg px-6 py-3 rounded-full border border-white/10 z-40 shadow-xl">
+      {/* 🎛️ Call Controls Bar */}
+      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-4 bg-gray-800/80 backdrop-blur-md px-6 py-3 rounded-full border border-white/10 z-40">
+        {/* Toggle Mute Button */}
         <button
           onClick={toggleMute}
-          className={`p-3 rounded-full text-white transition active:scale-95 ${
-            isMuted ? "bg-red-500 hover:bg-red-600" : "bg-gray-800 hover:bg-gray-700"
-          }`}
+          className="p-3 bg-gray-700 hover:bg-gray-600 rounded-full text-white transition active:scale-95"
         >
-          {isMuted ? "🔇" : "🎤"}
+          🎤
         </button>
 
+        {/* Toggle Camera Button */}
         <button
           onClick={toggleCamera}
-          className={`p-3 rounded-full text-white transition active:scale-95 ${
-            isCameraOff ? "bg-red-500 hover:bg-red-600" : "bg-gray-800 hover:bg-gray-700"
-          }`}
+          className="p-3 bg-gray-700 hover:bg-gray-600 rounded-full text-white transition active:scale-95"
         >
-          {isCameraOff ? "📷❌" : "📷"}
+          📷
         </button>
 
+        {/* Hangup Button */}
         <button
           onClick={onEndCall}
           className="p-3 bg-red-600 hover:bg-red-700 rounded-full text-white transition active:scale-95"
