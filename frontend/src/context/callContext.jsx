@@ -1,4 +1,9 @@
-import { createContext, useContext, useRef, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useRef,
+  useState,
+} from "react";
 
 const CallContext = createContext();
 
@@ -13,18 +18,23 @@ export const CallProvider = ({ children }) => {
     ringing
     incoming
     connected
-    ended
   */
 
   const [remoteUser, setRemoteUser] = useState(null);
 
-  // Remote video/audio stream
-  const [remoteStream, setRemoteStream] = useState(null);
+  const [remoteStream, setRemoteStream] =
+    useState(null);
 
-  // Local camera/microphone stream
-  const [localStream, setLocalStream] = useState(null);
+  const [localStream, setLocalStream] =
+    useState(null);
 
-  // Prevent duplicate WebRTC negotiation
+  const [callType, setCallType] =
+    useState(null);
+
+  // ==================================================
+  // NEGOTIATION LOCK
+  // ==================================================
+
   const negotiationStarted = useRef(false);
 
   const startNegotiation = () => {
@@ -39,11 +49,10 @@ export const CallProvider = ({ children }) => {
     negotiationStarted.current = false;
   };
 
-  /*
-    WebRTC controls are registered by CallManager.
-    This allows ActiveCall and other components
-    to use the SAME WebRTC connection.
-  */
+  // ==================================================
+  // WEBRTC CONTROLS
+  // ==================================================
+
   const webrtcControlsRef = useRef({
     endCall: () => {},
     toggleMute: () => {},
@@ -57,16 +66,28 @@ export const CallProvider = ({ children }) => {
     };
   };
 
-  const endCall = () => {
-    webrtcControlsRef.current.endCall();
+  // ==================================================
+  // RESET CALL UI
+  // ==================================================
 
+  const resetCall = () => {
     negotiationStarted.current = false;
 
     setRemoteUser(null);
     setRemoteStream(null);
     setLocalStream(null);
-
+    setCallType(null);
     setCallState("idle");
+  };
+
+  // ==================================================
+  // END CALL
+  // ==================================================
+
+  const endCall = () => {
+    webrtcControlsRef.current.endCall();
+
+    resetCall();
   };
 
   return (
@@ -84,12 +105,16 @@ export const CallProvider = ({ children }) => {
         remoteStream,
         setRemoteStream,
 
+        callType,
+        setCallType,
+
         startNegotiation,
         isNegotiationStarted,
         resetNegotiationLock,
 
         registerWebRTCControls,
 
+        resetCall,
         endCall,
       }}
     >

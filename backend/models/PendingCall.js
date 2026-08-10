@@ -19,9 +19,16 @@ const pendingCallSchema = new mongoose.Schema(
       profile_picture: { type: String },
     },
 
+    // audio or video
+    callType: {
+      type: String,
+      enum: ["audio", "video"],
+      required: true,
+    },
+
     offer: {
       type: Object,
-      required: false, // Offer will be saved during WebRTC signaling
+      required: false,
     },
 
     status: {

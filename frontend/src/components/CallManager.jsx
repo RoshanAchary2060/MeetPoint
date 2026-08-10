@@ -1,91 +1,144 @@
-import { useEffect } from "react";
+import { useEffect, useCallback } from "react";
+
 import { useSelector, useDispatch } from "react-redux";
+
 import { useAuth } from "@clerk/clerk-react";
+
 import useWebRTC from "../hooks/useWebRTC";
-import api from "../api/axios";
-import { clearSSEEvent } from "../features/sse/sseSlice";
+
 import CallingScreen from "./CallingScreen";
 import IncomingCallModal from "./IncomingCallModal";
 import ActiveCall from "./ActiveCall";
+
 import { useCall } from "../context/callContext.jsx";
+
+import { clearSSEEvent } from "../features/sse/sseSlice";
+
 import { fetchConnections } from "../features/connections/connectionsSlice.js";
+
 import { fetchUser } from "../features/user/usersSlice.js";
+
 import toast from "react-hot-toast";
-import { addMessages } from "../features/messages/messagesSlice.js"; // ← ADD THIS
+
 import { useNavigate, useLocation } from "react-router-dom";
+
 import socket from "../socket/socket.js";
+
 const CallManager = ({ children }) => {
   const dispatch = useDispatch();
+
   const navigate = useNavigate();
+
   const location = useLocation();
-  const { getToken } = useAuth();
+
+  const { userId, getToken } = useAuth();
+
   const sseEvent = useSelector((state) => state.sse.event);
 
   const {
     callState,
     setCallState,
-    setRemoteUser,
+
     remoteUser,
+    setRemoteUser,
+
+    callType,
+    setCallType,
+
     startNegotiation,
     isNegotiationStarted,
+
     registerWebRTCControls,
+
     endCall: resetCallUI,
   } = useCall();
 
   const {
     createOffer,
     createAnswer,
+
     setRemoteAnswer,
     addIceCandidate,
+
     toggleMute,
     toggleCamera,
+
     localVideoRef,
     remoteVideoRef,
+
     endCall: endWebRTC,
   } = useWebRTC();
 
-  const targetUserId = remoteUser?.id || remoteUser?._id;
+  // =========================================================
+  // REMOTE USER ID
+  // =========================================================
 
-  const sendSignaling = async (endpoint, data) => {
-    try {
-      const token = await getToken();
-      await api.post(`/api/call/${endpoint}`, data, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-    } catch (err) {
-      console.error(`Signaling error on /${endpoint}:`, err);
-    }
-  };
+  const getRemoteUserId = useCallback(() => {
+    return remoteUser?.id || remoteUser?._id || null;
+  }, [remoteUser]);
 
-  const handleEndCall = () => {
-    if (targetUserId) {
-      socket.emit("end-call", { receiverId: targetUserId });
-    }
-    endWebRTC(); // Stops media tracks & closes peer connection
-    resetCallUI(); // Resets call state to idle
-  };
+  // =========================================================
+  // REGISTER WEBRTC CONTROLS
+  // =========================================================
 
   useEffect(() => {
-    registerWebRTCControls({ endCall: endWebRTC, toggleMute, toggleCamera });
-  }, [endWebRTC, toggleMute, toggleCamera, registerWebRTCControls]);
+    registerWebRTCControls({
+      endCall: endWebRTC,
+      toggleMute,
+      toggleCamera,
+    });
+  }, [registerWebRTCControls, endWebRTC, toggleMute, toggleCamera]);
+
+  // =========================================================
+  // SOCKET CONNECTION
+  // =========================================================
 
   useEffect(() => {
-    if (!sseEvent) return;
+    if (!userId) {
+      return;
+    }
+
+    console.log("🔌 Connecting socket:", userId);
+
+    if (!socket.connected) {
+      socket.connect();
+    }
+
+    const registerUser = () => {
+      console.log("📝 Registering:", userId);
+
+      socket.emit("register", userId);
+    };
+
+    if (socket.connected) {
+      registerUser();
+    }
+
+    socket.on("connect", registerUser);
+
+    return () => {
+      socket.off("connect", registerUser);
+    };
+  }, [userId]);
+
+  // =========================================================
+  // SSE
+  // =========================================================
+
+  useEffect(() => {
+    if (!sseEvent) {
+      return;
+    }
 
     const handleSSE = async () => {
-      console.log(
-        "HANDLE SSE",
-        sseEvent.type,
-        performance.now(),
-        document.visibilityState,
-      );
+      console.log("📡 SSE:", sseEvent.type);
+
       switch (sseEvent.type) {
         case "RELATIONSHIP_UPDATE": {
-          console.log("🔥 RELATIONSHIP_UPDATE received");
-
           const token = await getToken();
 
           dispatch(fetchConnections(token));
+
           dispatch(fetchUser(token));
 
           break;
@@ -100,17 +153,28 @@ const CallManager = ({ children }) => {
           toast(
             <div>
               <p>
-                <b>{fromUser.full_name || fromUser?.full_name || "Someone"}</b>{" "}
-                sent you a connection request.
+                <b>{fromUser?.full_name || "Someone"}</b> sent you a connection
+                request.
               </p>
+
               <button
                 onClick={() => {
                   navigate("/connections", {
-                    state: { activeTab: "Received" },
+                    state: {
+                      activeTab: "Received",
+                    },
                   });
+
                   toast.dismiss();
                 }}
-                className="mt-2 px-3 py-1 rounded bg-indigo-600 text-white"
+                className="
+                    mt-2
+                    px-3
+                    py-1
+                    rounded
+                    bg-indigo-600
+                    text-white
+                  "
               >
                 View
               </button>
@@ -119,6 +183,7 @@ const CallManager = ({ children }) => {
               duration: Infinity,
             },
           );
+
           break;
         }
 
@@ -127,150 +192,75 @@ const CallManager = ({ children }) => {
 
           toast(
             (t) => (
-              <div className="flex items-center justify-between gap-3 min-w-[220px]">
-                <div className="flex items-center gap-2">
-                  <img
-                    src={
-                      follower?.profile_picture ||
-                      "https://via.placeholder.com/40"
-                    }
-                    alt={follower?.full_name}
-                    className="w-8 h-8 rounded-full object-cover"
-                  />
-                  <p className="text-sm">
-                    <b>{follower?.full_name || "Someone"}</b> started following
-                    you.
-                  </p>
-                </div>
+              <div className="flex items-center gap-3">
+                <img
+                  src={
+                    follower?.profile_picture ||
+                    "https://via.placeholder.com/40"
+                  }
+                  alt={follower?.full_name}
+                  className="
+                      w-8
+                      h-8
+                      rounded-full
+                      object-cover
+                    "
+                />
+
+                <p className="text-sm">
+                  <b>{follower?.full_name || "Someone"}</b> started following
+                  you.
+                </p>
+
                 <button
                   onClick={() => {
                     navigate("/connections", {
-                      state: { activeTab: "Followers" },
+                      state: {
+                        activeTab: "Followers",
+                      },
                     });
-                    toast.dismiss();
+
+                    toast.dismiss(t.id);
                   }}
-                  className="px-3 py-1 text-xs rounded bg-purple-600 text-white hover:bg-purple-700 font-medium transition cursor-pointer shrink-0"
+                  className="
+                      px-3
+                      py-1
+                      text-xs
+                      rounded
+                      bg-purple-600
+                      text-white
+                    "
                 >
                   View
                 </button>
               </div>
             ),
-            { duration: 5000 },
-          );
-          break;
-        }
-        // ========================================
-        // ADD THIS CASE FOR REAL-TIME MESSAGES
-        // ========================================
-
-        case "INCOMING_AUDIO_CALL": {
-          setRemoteUser(sseEvent.caller);
-          setCallState("incoming");
-
-          // Notify the caller that the receiver's phone is ringing
-          socket.emit("call-ringing", { callerId: sseEvent.from_user_id });
-          break;
-        }
-
-        case "CALL_RINGING": {
-          if (callState === "calling") {
-            setCallState("ringing");
-          }
-          break;
-        }
-
-        case "CALL_ACCEPTED": {
-          if (isNegotiationStarted()) {
-            console.log("Ignoring duplicate CALL_ACCEPTED");
-            break;
-          }
-          startNegotiation();
-
-          setCallState("connected");
-          const offer = await createOffer((candidate) => {
-            socket.emit("ice-candidate", {
-              receiverId: targetUserId,
-              candidate,
-            });
-          });
-          socket.emit("webrtc-offer", {
-            receiverId: targetUserId,
-            offer,
-          });
-          break;
-        }
-
-        case "WEBRTC_OFFER": {
-          if (isNegotiationStarted()) {
-            console.log("Ignoring duplicate WEBRTC_OFFER");
-            break;
-          }
-          startNegotiation();
-
-          setCallState("connected");
-          const answer = await createAnswer(sseEvent.offer, (candidate) => {
-            socket.emit("ice-candidate", {
-              receiverId: targetUserId,
-              candidate,
-            });
-          });
-          socket.emit("webrtc-answer", {
-            receiverId: targetUserId,
-            answer,
-          });
-          break;
-        }
-        case "WEBRTC_ANSWER": {
-          await setRemoteAnswer(sseEvent.answer);
-          break;
-        }
-
-        case "WEBRTC_ICE_CANDIDATE": {
-          await addIceCandidate(sseEvent.candidate);
-          break;
-        }
-
-        case "CALL_REJECTED":
-        case "CALL_CANCELLED":
-        case "CALL_ENDED": {
-          endWebRTC();
-          resetCallUI();
-          break;
-        }
-        case "CALL_RECEIVER_OFFLINE": {
-          // 🟢 Show instant feedback to the caller
-          toast.error(
-            `${remoteUser?.full_name || "User"} is currently offline`,
+            {
+              duration: 5000,
+            },
           );
 
-          if (targetUserId) {
-            socket.emit("end-call", {
-              receiverId: targetUserId,
-            });
-          }
-          endWebRTC();
-          resetCallUI();
           break;
         }
 
-        // CallManager.jsx
-
-        // ... inside useEffect/switch watching sseEvent ...
         case "NEW_MESSAGE": {
           const message = sseEvent.message;
-          if (!message) break;
+
+          if (!message) {
+            break;
+          }
 
           const sender = message.from_user_id;
+
           const senderId = sender?._id || sender;
 
-          // 🟢 Check if current user is ALREADY inside this user's chatbox
           const isCurrentlyInChat =
             location.pathname === `/messages/${senderId}`;
 
-          // If already chatting with this user, don't show toast popup
-          if (isCurrentlyInChat) break;
+          if (isCurrentlyInChat) {
+            break;
+          }
 
-          // Otherwise, show instant toast notification
           toast(
             (t) => (
               <div className="flex items-center gap-3">
@@ -279,29 +269,48 @@ const CallManager = ({ children }) => {
                     sender?.profile_picture || "https://via.placeholder.com/40"
                   }
                   alt={sender?.full_name}
-                  className="w-10 h-10 rounded-full object-cover"
+                  className="
+                      w-10
+                      h-10
+                      rounded-full
+                      object-cover
+                    "
                 />
+
                 <div className="flex-1">
-                  <p className="text-sm font-semibold text-gray-900">
+                  <p className="text-sm font-semibold">
                     {sender?.full_name || "New Message"}
                   </p>
-                  <p className="text-xs text-gray-500 truncate max-w-[180px]">
+
+                  <p className="text-xs text-gray-500 truncate">
                     {message.text || "Sent an image"}
                   </p>
                 </div>
+
                 <button
                   onClick={() => {
                     navigate(`/messages/${senderId}`);
+
                     toast.dismiss(t.id);
                   }}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 py-1.5 rounded-lg font-medium transition"
+                  className="
+                      bg-indigo-600
+                      text-white
+                      text-xs
+                      px-3
+                      py-1.5
+                      rounded-lg
+                    "
                 >
                   View
                 </button>
               </div>
             ),
-            { duration: 4000 },
+            {
+              duration: 4000,
+            },
           );
+
           break;
         }
 
@@ -313,27 +322,371 @@ const CallManager = ({ children }) => {
     };
 
     handleSSE();
-  }, [sseEvent]);
+  }, [sseEvent, getToken, dispatch, navigate, location.pathname]);
+
+  // =========================================================
+  // END CALL — IMPORTANT
+  // =========================================================
+
+  const hangUpCall = useCallback(() => {
+    const receiverId = getRemoteUserId();
+
+    console.log("📴 ENDING CALL");
+
+    console.log("Remote user:", remoteUser);
+
+    console.log("Receiver ID:", receiverId);
+
+    // Tell other participant
+    if (receiverId) {
+      socket.emit("end-call", {
+        receiverId,
+      });
+
+      console.log("📤 CALL END SIGNAL SENT →", receiverId);
+    }
+
+    // Clean our side
+    endWebRTC();
+
+    resetCallUI();
+  }, [getRemoteUserId, remoteUser, endWebRTC, resetCallUI]);
+
+  // =========================================================
+  // SOCKET CALL EVENTS
+  // =========================================================
 
   useEffect(() => {
-    console.log("CALL STATE changed =", callState);
-  }, [callState]);
+    // =======================================================
+    // INCOMING CALL
+    // =======================================================
+
+    const handleIncomingCall = ({ callerId, caller, callType }) => {
+      console.log("📞 INCOMING CALL", {
+        callerId,
+        caller,
+        callType,
+      });
+
+      setRemoteUser({
+        id: callerId,
+
+        username: caller?.username,
+
+        full_name: caller?.full_name,
+
+        profile_picture: caller?.profile_picture,
+      });
+
+      setCallType(callType || "audio");
+
+      setCallState("incoming");
+    };
+
+    // =======================================================
+    // RINGING
+    // =======================================================
+
+    const handleCallRinging = () => {
+      console.log("🔔 CALL RINGING");
+
+      setCallState("ringing");
+    };
+
+    // =======================================================
+    // ACCEPTED
+    // =======================================================
+
+    const handleCallAccepted = async ({ callType: acceptedCallType }) => {
+      console.log("✅ CALL ACCEPTED BY RECEIVER");
+
+      const receiverId = getRemoteUserId();
+
+      if (!receiverId) {
+        console.error("❌ Receiver ID missing");
+
+        toast.error("Receiver information missing");
+
+        return;
+      }
+
+      if (isNegotiationStarted()) {
+        console.log("⚠️ Negotiation already started");
+
+        return;
+      }
+
+      startNegotiation();
+
+      const finalCallType = acceptedCallType || callType || "audio";
+
+      setCallType(finalCallType);
+
+      console.log("🎤 CREATING OFFER", {
+        receiverId,
+        callType: finalCallType,
+      });
+
+      try {
+        const offer = await createOffer((candidate) => {
+          socket.emit("ice-candidate", {
+            receiverId,
+            candidate,
+          });
+        });
+
+        console.log("📤 SENDING OFFER");
+
+        socket.emit("webrtc-offer", {
+          receiverId,
+          offer,
+          callType: finalCallType,
+        });
+
+        console.log("✅ OFFER SENT");
+      } catch (error) {
+        console.error("❌ OFFER CREATION FAILED:", error);
+
+        endWebRTC();
+        resetCallUI();
+
+        toast.error("Could not start the call");
+      }
+    };
+
+    // =======================================================
+    // OFFER RECEIVED
+    // =======================================================
+
+    const handleWebRTCOffer = async ({
+      callerId,
+      offer,
+      callType: offerCallType,
+    }) => {
+      console.log("📥 WEBRTC OFFER RECEIVED", {
+        callerId,
+        callType: offerCallType,
+      });
+
+      if (isNegotiationStarted()) {
+        console.log("⚠️ Already negotiating");
+
+        return;
+      }
+
+      const finalCallerId = callerId || getRemoteUserId();
+
+      if (!finalCallerId) {
+        console.error("❌ Caller ID missing");
+
+        return;
+      }
+
+      startNegotiation();
+
+      if (offerCallType) {
+        setCallType(offerCallType);
+      }
+
+      try {
+        console.log("🎤 CREATING ANSWER");
+
+        const answer = await createAnswer(offer, (candidate) => {
+          socket.emit("ice-candidate", {
+            receiverId: finalCallerId,
+            candidate,
+          });
+        });
+
+        console.log("📤 SENDING ANSWER");
+
+        socket.emit("webrtc-answer", {
+          receiverId: finalCallerId,
+          answer,
+        });
+
+        // DO NOT SET CONNECTED HERE.
+        //
+        // useWebRTC will set connected
+        // when ICE actually connects.
+
+        console.log("✅ ANSWER SENT. WAITING FOR WEBRTC...");
+      } catch (error) {
+        console.error("❌ ANSWER CREATION FAILED:", error);
+
+        endWebRTC();
+        resetCallUI();
+
+        toast.error("Could not answer the call");
+      }
+    };
+
+    // =======================================================
+    // ANSWER RECEIVED
+    // =======================================================
+
+    const handleWebRTCAnswer = async ({ answer }) => {
+      console.log("📥 WEBRTC ANSWER RECEIVED");
+
+      await setRemoteAnswer(answer);
+    };
+
+    // =======================================================
+    // ICE
+    // =======================================================
+
+    const handleIceCandidate = async ({ candidate }) => {
+      console.log("🧊 ICE CANDIDATE RECEIVED");
+
+      await addIceCandidate(candidate);
+    };
+
+    // =======================================================
+    // REJECT
+    // =======================================================
+
+    const handleCallRejected = () => {
+      console.log("❌ CALL REJECTED");
+
+      endWebRTC();
+      resetCallUI();
+
+      toast.error("Call rejected");
+    };
+
+    // =======================================================
+    // CANCEL
+    // =======================================================
+
+    const handleCallCancelled = () => {
+      console.log("❌ CALL CANCELLED");
+
+      endWebRTC();
+      resetCallUI();
+    };
+
+    // =======================================================
+    // END CALL
+    // =======================================================
+
+    const handleCallEnded = () => {
+      console.log("📴 REMOTE USER ENDED CALL");
+
+      // Close our WebRTC
+      endWebRTC();
+
+      // Close our call UI
+      resetCallUI();
+
+      console.log("✅ CALL CLOSED LOCALLY");
+    };
+
+    // =======================================================
+    // OFFLINE
+    // =======================================================
+
+    const handleUserOffline = () => {
+      console.log("🔴 USER OFFLINE");
+
+      toast.error("User is currently offline");
+
+      endWebRTC();
+      resetCallUI();
+    };
+
+    // =======================================================
+    // REGISTER
+    // =======================================================
+
+    socket.on("incoming-call", handleIncomingCall);
+
+    socket.on("call-ringing", handleCallRinging);
+
+    socket.on("call-accepted", handleCallAccepted);
+
+    socket.on("webrtc-offer", handleWebRTCOffer);
+
+    socket.on("webrtc-answer", handleWebRTCAnswer);
+
+    socket.on("ice-candidate", handleIceCandidate);
+
+    socket.on("call-rejected", handleCallRejected);
+
+    socket.on("call-cancelled", handleCallCancelled);
+
+    socket.on("call-ended", handleCallEnded);
+
+    socket.on("user-offline", handleUserOffline);
+
+    // =======================================================
+    // CLEANUP
+    // =======================================================
+
+    return () => {
+      socket.off("incoming-call", handleIncomingCall);
+
+      socket.off("call-ringing", handleCallRinging);
+
+      socket.off("call-accepted", handleCallAccepted);
+
+      socket.off("webrtc-offer", handleWebRTCOffer);
+
+      socket.off("webrtc-answer", handleWebRTCAnswer);
+
+      socket.off("ice-candidate", handleIceCandidate);
+
+      socket.off("call-rejected", handleCallRejected);
+
+      socket.off("call-cancelled", handleCallCancelled);
+
+      socket.off("call-ended", handleCallEnded);
+
+      socket.off("user-offline", handleUserOffline);
+    };
+  }, [
+    setCallState,
+    setRemoteUser,
+    setCallType,
+
+    callType,
+
+    createOffer,
+    createAnswer,
+    setRemoteAnswer,
+    addIceCandidate,
+
+    startNegotiation,
+    isNegotiationStarted,
+
+    getRemoteUserId,
+
+    endWebRTC,
+    resetCallUI,
+  ]);
+
+  // =========================================================
+  // UI
+  // =========================================================
 
   return (
     <>
       {children}
-      {callState === "calling" || callState === "ringing" ? (
+
+      {(callState === "calling" || callState === "ringing") && (
         <CallingScreen />
-      ) : null}
-      {callState === "incoming" ? <IncomingCallModal /> : null}
-      {callState === "connected" ? (
+      )}
+
+      {callState === "incoming" && <IncomingCallModal />}
+
+      {callState === "connected" && (
         <ActiveCall
-            toggleMute={toggleMute}
-            toggleCamera={toggleCamera}
-            localVideoRef={localVideoRef}
-            remoteVideoRef={remoteVideoRef}
-          />
-      ) : null}
+          toggleMute={toggleMute}
+          toggleCamera={toggleCamera}
+          localVideoRef={localVideoRef}
+          remoteVideoRef={remoteVideoRef}
+          onEndCall={hangUpCall}
+        />
+      )}
     </>
   );
 };

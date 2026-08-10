@@ -15,160 +15,242 @@ export const initializeSocket = (httpServer) => {
   io.on("connection", (socket) => {
     console.log("🟢 Socket Connected:", socket.id);
 
-    // =========================
+    // ==================================================
     // REGISTER
-    // =========================
+    // ==================================================
+
     socket.on("register", (userId) => {
-      console.log("REGISTER EVENT");
+      console.log("📝 REGISTER EVENT");
       console.log("socket.id =", socket.id);
       console.log("userId =", userId);
 
-      // ⭐ ADD THIS
       socket.userId = userId;
 
       onlineUsers.set(userId, socket.id);
 
-      console.log("Current Map");
+      console.log("📋 Current Online Users:");
 
       for (const [id, sid] of onlineUsers.entries()) {
         console.log(id, "=>", sid);
       }
     });
 
-    // =========================
+    // ==================================================
     // CALL USER
-    // =========================
-    socket.on("call-user", ({ callerId, receiverId, caller }) => {
-      console.log("CALL USER");
+    // ==================================================
 
-      console.log("Current Online Users");
+    socket.on("call-user", ({ callerId, receiverId, callType, caller }) => {
+      console.log(`📞 ${callType?.toUpperCase()} CALL USER`);
 
-      for (const [id, sid] of onlineUsers.entries()) {
-        console.log(id, sid);
-      }
+      console.log("Caller:", callerId);
+      console.log("Receiver:", receiverId);
 
       const receiverSocket = onlineUsers.get(receiverId);
 
-      console.log("receiver socket =", receiverSocket);
-
-      io.fetchSockets().then((sockets) => {
-        console.log(
-          "All Connected Socket IDs:",
-          sockets.map((s) => s.id)
-        );
-      });
+      console.log("Receiver socket:", receiverSocket);
 
       if (!receiverSocket) {
+        console.log("🔴 Receiver offline");
+
         socket.emit("user-offline");
+
         return;
       }
 
       io.to(receiverSocket).emit("incoming-call", {
         callerId,
         caller,
+        callType,
       });
 
-      console.log("EMITTED TO", receiverSocket);
+      console.log(`📤 INCOMING CALL SENT: ${callerId} → ${receiverId}`);
     });
-    // =========================
+
+    // ==================================================
     // RINGING
-    // =========================
+    // ==================================================
+
     socket.on("call-ringing", ({ callerId }) => {
+      console.log("🔔 CALL RINGING →", callerId);
+
       const callerSocket = onlineUsers.get(callerId);
 
-      if (callerSocket) {
-        io.to(callerSocket).emit("call-ringing");
+      if (!callerSocket) {
+        return;
       }
+
+      io.to(callerSocket).emit("call-ringing");
     });
+
+    // ==================================================
+    // CANCEL CALL
+    // ==================================================
 
     socket.on("cancel-call", ({ receiverId }) => {
+      console.log("❌ CANCEL CALL →", receiverId);
+
       const receiverSocket = onlineUsers.get(receiverId);
 
-      if (receiverSocket) {
-        io.to(receiverSocket).emit("call-cancelled");
+      if (!receiverSocket) {
+        return;
       }
+
+      io.to(receiverSocket).emit("call-cancelled");
     });
 
-    // =========================
-    // ACCEPT
-    // =========================
-    socket.on("accept-call", ({ callerId }) => {
+    // ==================================================
+    // ACCEPT CALL
+    // ==================================================
+
+    socket.on("accept-call", ({ callerId, callType }) => {
+      console.log("✅ ACCEPT CALL");
+
+      console.log("Caller:", callerId);
+
+      console.log("Call type:", callType);
+
       const callerSocket = onlineUsers.get(callerId);
 
-      if (callerSocket) {
-        io.to(callerSocket).emit("call-accepted");
+      if (!callerSocket) {
+        console.log("🔴 Caller went offline");
+
+        return;
       }
+
+      io.to(callerSocket).emit("call-accepted", {
+        callType,
+      });
+
+      console.log("📤 CALL ACCEPTED SENT →", callerId);
     });
 
-    // =========================
-    // REJECT
-    // =========================
+    // ==================================================
+    // REJECT CALL
+    // ==================================================
+
     socket.on("reject-call", ({ callerId }) => {
+      console.log("❌ REJECT CALL →", callerId);
+
       const callerSocket = onlineUsers.get(callerId);
 
-      if (callerSocket) {
-        io.to(callerSocket).emit("call-rejected");
+      if (!callerSocket) {
+        return;
       }
+
+      io.to(callerSocket).emit("call-rejected");
     });
 
-    // =========================
-    // OFFER
-    // =========================
-    socket.on("webrtc-offer", ({ receiverId, offer }) => {
+    // ==================================================
+    // WEBRTC OFFER
+    // ==================================================
+
+    socket.on("webrtc-offer", ({ receiverId, offer, callType }) => {
+      console.log("📤 WEBRTC OFFER");
+
+      console.log("From:", socket.userId);
+
+      console.log("To:", receiverId);
+
+      console.log("Type:", callType);
+
       const receiverSocket = onlineUsers.get(receiverId);
 
-      if (receiverSocket) {
-        io.to(receiverSocket).emit("webrtc-offer", {
-          offer,
-        });
+      if (!receiverSocket) {
+        console.log("❌ Receiver not found");
+
+        return;
       }
+
+      io.to(receiverSocket).emit("webrtc-offer", {
+        callerId: socket.userId,
+        offer,
+        callType,
+      });
+
+      console.log("✅ OFFER FORWARDED");
     });
 
-    // =========================
-    // ANSWER
-    // =========================
+    // ==================================================
+    // WEBRTC ANSWER
+    // ==================================================
+
     socket.on("webrtc-answer", ({ receiverId, answer }) => {
+      console.log("📤 WEBRTC ANSWER");
+
+      console.log("From:", socket.userId);
+
+      console.log("To:", receiverId);
+
       const receiverSocket = onlineUsers.get(receiverId);
 
-      if (receiverSocket) {
-        io.to(receiverSocket).emit("webrtc-answer", {
-          answer,
-        });
+      if (!receiverSocket) {
+        console.log("❌ Receiver not found");
+
+        return;
       }
+
+      io.to(receiverSocket).emit("webrtc-answer", {
+        answer,
+      });
+
+      console.log("✅ ANSWER FORWARDED");
     });
 
-    // =========================
-    // ICE
-    // =========================
+    // ==================================================
+    // ICE CANDIDATE
+    // ==================================================
+
     socket.on("ice-candidate", ({ receiverId, candidate }) => {
       const receiverSocket = onlineUsers.get(receiverId);
 
-      if (receiverSocket) {
-        io.to(receiverSocket).emit("ice-candidate", {
-          candidate,
-        });
+      if (!receiverSocket) {
+        return;
       }
+
+      io.to(receiverSocket).emit("ice-candidate", {
+        candidate,
+      });
     });
 
-    // =========================
+    // ==================================================
     // END CALL
-    // =========================
+    // ==================================================
+
     socket.on("end-call", ({ receiverId }) => {
+      console.log("📴 END CALL");
+
+      console.log("From:", socket.userId);
+
+      console.log("To:", receiverId);
+
       const receiverSocket = onlineUsers.get(receiverId);
 
-      if (receiverSocket) {
-        io.to(receiverSocket).emit("call-ended");
+      if (!receiverSocket) {
+        console.log("⚠️ Receiver is offline");
+
+        return;
       }
+
+      io.to(receiverSocket).emit("call-ended", {
+        callerId: socket.userId,
+      });
+
+      console.log("📤 CALL ENDED SENT →", receiverId);
     });
 
-    // =========================
+    // ==================================================
     // DISCONNECT
-    // =========================
+    // ==================================================
+
     socket.on("disconnect", () => {
+      console.log("🔴 Socket disconnected:", socket.id);
+
       for (const [userId, socketId] of onlineUsers.entries()) {
         if (socketId === socket.id) {
           onlineUsers.delete(userId);
-          console.log(`🔴 User ${userId} disconnected`);
+
+          console.log(`🔴 User ${userId} removed from online users`);
+
           break;
         }
       }
