@@ -38,6 +38,13 @@ const Chatbox = () => {
   // FETCH MESSAGES
   // --------------------------------------------------
 
+  const formatCallDuration = (seconds = 0) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+
+    return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+  };
+
   const fetchUserMessages = async () => {
     try {
       const token = await getToken();
@@ -112,11 +119,13 @@ const Chatbox = () => {
   // --------------------------------------------------
 
   useEffect(() => {
-    if (connections.length > 0) {
-      const foundUser = connections.find(
-        (connection) => connection._id === userId,
-      );
+    if (!userId || !connections) return;
 
+    const foundUser = connections.find(
+      (connection) => connection._id === userId
+    );
+
+    if (foundUser) {
       setUser(foundUser);
     }
   }, [connections, userId]);
@@ -132,16 +141,45 @@ const Chatbox = () => {
   }, [messages]);
 
   // --------------------------------------------------
-  // START AUDIO / VIDEO CALL
+  // RECEIVE REAL-TIME MESSAGES
   // --------------------------------------------------
 
+  useEffect(() => {
+    const handleNewMessage = (message) => {
+      if (!message) {
+        return;
+      }
+
+      console.log("📩 NEW MESSAGE RECEIVED:", message);
+
+      const fromId = message.from_user_id?._id || message.from_user_id;
+
+      const toId = message.to_user_id?._id || message.to_user_id;
+
+      // Only add this message if it belongs to this conversation
+      if (
+        (fromId === userId && toId === currentUser?._id) ||
+        (fromId === currentUser?._id && toId === userId)
+      ) {
+        dispatch(addMessages(message));
+      }
+    };
+
+    socket.on("new-message", handleNewMessage);
+
+    return () => {
+      socket.off("new-message", handleNewMessage);
+    };
+  }, [userId, currentUser?._id, dispatch]);
+
+  // --------------------------------------------------
+  // START AUDIO / VIDEO CALL
+  // --------------------------------------------------
 
   const startCall = async (type) => {
     try {
       if (!user || !currentUser) {
-        toast.error(
-          "User information not available"
-        );
+        toast.error("User information not available");
 
         return;
       }
@@ -168,8 +206,7 @@ const Chatbox = () => {
         id: receiverId,
         username: user.username,
         full_name: user.full_name,
-        profile_picture:
-          user.profile_picture,
+        profile_picture: user.profile_picture,
       });
 
       // setCallState("calling");
@@ -194,19 +231,11 @@ const Chatbox = () => {
         },
       });
 
-      console.log(
-        "📤 CALL SIGNAL SENT"
-      );
+      console.log("📤 CALL SIGNAL SENT");
     } catch (error) {
-      console.error(
-        "Start call error:",
-        error
-      );
+      console.error("Start call error:", error);
 
-      toast.error(
-        error.message ||
-          "Failed to start call"
-      );
+      toast.error(error.message || "Failed to start call");
 
       setCallState("idle");
     }
@@ -318,18 +347,72 @@ const Chatbox = () => {
                           : "bg-white text-slate-800 rounded-2xl rounded-tl-none border border-gray-100"
                       }`}
                     >
-                      {message.message_type === "image" && (
-                        <img
-                          src={message.media_url}
-                          className="w-full max-h-80 object-cover rounded-lg mb-2"
-                          alt="Attachment"
-                        />
-                      )}
+                      {/* ================================
+                          CALL MESSAGE
+                      ================================= */}
 
-                      {message.text && (
-                        <p className="break-words leading-relaxed whitespace-pre-wrap">
-                          {message.text}
-                        </p>
+                      {message.message_type === "call" ? (
+                        <div className="flex items-center gap-3 min-w-[220px]">
+                          <div
+                            className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                              message.call_status === "declined" ||
+                              message.call_status === "missed"
+                                ? "bg-red-100 text-red-500"
+                                : "bg-green-100 text-green-600"
+                            }`}
+                          >
+                            {message.call_type === "video" ? (
+                              <Video className="w-5 h-5" />
+                            ) : (
+                              <Phone className="w-5 h-5" />
+                            )}
+                          </div>
+
+                          <div>
+                            <p className="font-semibold">
+                              {message.call_status === "missed"
+                                ? "Missed call"
+                                : message.call_status === "declined"
+                                  ? "Call declined"
+                                  : "Call ended"}
+                            </p>
+
+                            <p className="text-xs opacity-70">
+                              {message.call_type === "video"
+                                ? "Video call"
+                                : "Audio call"}
+
+                              {message.call_status === "completed" &&
+                                ` • ${formatCallDuration(
+                                  message.call_duration,
+                                )}`}
+                            </p>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          {/* ================================
+                              IMAGE MESSAGE
+                          ================================= */}
+
+                          {message.message_type === "image" && (
+                            <img
+                              src={message.media_url}
+                              className="w-full max-h-80 object-cover rounded-lg mb-2"
+                              alt="Attachment"
+                            />
+                          )}
+
+                          {/* ================================
+                              TEXT MESSAGE
+                          ================================= */}
+
+                          {message.text && (
+                            <p className="break-words leading-relaxed whitespace-pre-wrap">
+                              {message.text}
+                            </p>
+                          )}
+                        </>
                       )}
                     </div>
                   </div>

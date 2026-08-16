@@ -165,14 +165,20 @@ const App = () => {
     const onNewMessage = (message) => {
       console.log("📩 Incoming real-time message received:", message);
 
-      // 1. Add to Redux store immediately
+      // Add message to Redux
       dispatch(addMessages(message));
 
-      // 2. Trigger SSE/Toast event state
+      // Call history messages should NOT trigger
+      // the normal "New Message" notification.
+      if (message.message_type === "call") {
+        return;
+      }
+
+      // Only normal messages trigger notification
       dispatch(
         setSSEEvent({
           type: "NEW_MESSAGE",
-          message: message,
+          message,
         }),
       );
     };
