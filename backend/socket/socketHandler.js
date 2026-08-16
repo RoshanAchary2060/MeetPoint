@@ -2,6 +2,8 @@ import { Server } from "socket.io";
 
 const onlineUsers = new Map();
 
+const activeCalls = new Map();
+
 export let io;
 
 export const initializeSocket = (httpServer) => {
@@ -39,12 +41,57 @@ export const initializeSocket = (httpServer) => {
     // CALL USER
     // ==================================================
 
-    socket.on("call-user", ({ callerId, receiverId, callType, caller }) => {
+    socket.on("call-user", ({ callerId, receiverId, callType, caller, receiver }) => {
       console.log(`📞 ${callType?.toUpperCase()} CALL USER`);
 
       console.log("Caller:", callerId);
       console.log("Receiver:", receiverId);
 
+      console.log("========== CALL CHECK ==========");
+      console.log("Receiver name:", receiver.full_name);
+      console.log("Caller name:", caller.full_name);
+
+      console.log("Caller:", caller);
+      console.log("Receiver:", receiver);
+
+      console.log("activeCalls size:", activeCalls.size);
+
+      for (const [user, otherUser] of activeCalls.entries()) {
+        console.log("ACTIVE:", user, "↔", otherUser);
+      }
+
+      console.log("Caller busy?", activeCalls.has(callerId));
+      console.log("Receiver busy?", activeCalls.has(receiverId));
+
+      console.log("================================");
+
+      // CHECK CALLER BUSY
+      if (activeCalls.has(callerId)) {
+        console.log("🔴 CALLER BUSY:", callerId);
+
+        socket.emit("call-busy", {
+            reason: "receiver-busy",
+            receiverId,
+            receiverName: receiver?.full_name || "User",
+          });
+
+        return;
+      }
+
+      // CHECK RECEIVER BUSY
+      if (activeCalls.has(receiverId)) {
+        console.log("🔴 RECEIVER BUSY:", receiverId);
+
+        socket.emit("call-busy", {
+          reason: "receiver-busy",
+          receiverId,
+          receiverName: receiver?.full_name || "User",
+        });
+
+        return;
+      }
+
+      // CHECK RECEIVER ONLINE
       const receiverSocket = onlineUsers.get(receiverId);
 
       console.log("Receiver socket:", receiverSocket);
@@ -57,15 +104,18 @@ export const initializeSocket = (httpServer) => {
         return;
       }
 
+      // RESERVE BOTH
+      activeCalls.set(callerId, receiverId);
+      activeCalls.set(receiverId, callerId);
+
+      console.log("📞 ACTIVE CALL CREATED");
+
       io.to(receiverSocket).emit("incoming-call", {
         callerId,
         caller,
         callType,
       });
-
-      console.log(`📤 INCOMING CALL SENT: ${callerId} → ${receiverId}`);
     });
-
     // ==================================================
     // RINGING
     // ==================================================
@@ -83,12 +133,45 @@ export const initializeSocket = (httpServer) => {
       } else {
         console.log("❌ Caller socket ID not found in onlineUsers!");
       }
-    });    // ==================================================
+    });
+
+    // ==================================================
     // CANCEL CALL
     // ==================================================
 
     socket.on("cancel-call", ({ receiverId }) => {
-      console.log("❌ CANCEL CALL →", receiverId);
+      console.log("❌ CANCEL CALL");
+      console.log("From:", socket.userId);
+      console.log("To:", receiverId);
+
+      const callerId = socket.userId;
+
+      // ============================================
+      // IMPORTANT:
+      // ONLY cancel if this exact pair owns the call
+      // ============================================
+
+      if (
+        activeCalls.get(callerId) !== receiverId ||
+        activeCalls.get(receiverId) !== callerId
+      ) {
+        console.log("⚠️ CANCEL IGNORED — CALL DOES NOT BELONG TO THIS PAIR");
+
+        return;
+      }
+
+      // ============================================
+      // REMOVE ACTIVE CALL
+      // ============================================
+
+      activeCalls.delete(callerId);
+      activeCalls.delete(receiverId);
+
+      console.log("🧹 ACTIVE CALL REMOVED");
+
+      // ============================================
+      // NOTIFY OTHER USER
+      // ============================================
 
       const receiverSocket = onlineUsers.get(receiverId);
 
@@ -97,6 +180,8 @@ export const initializeSocket = (httpServer) => {
       }
 
       io.to(receiverSocket).emit("call-cancelled");
+
+      console.log("📤 CALL CANCELLED SENT →", receiverId);
     });
 
     // ==================================================
@@ -132,7 +217,14 @@ export const initializeSocket = (httpServer) => {
     socket.on("reject-call", ({ callerId }) => {
       console.log("❌ REJECT CALL →", callerId);
 
+      const receiverId = socket.userId;
       const callerSocket = onlineUsers.get(callerId);
+
+      // Remove active call reservation
+      activeCalls.delete(callerId);
+      activeCalls.delete(receiverId);
+
+      console.log("🧹 ACTIVE CALL REMOVED");
 
       if (!callerSocket) {
         return;
@@ -220,20 +312,33 @@ export const initializeSocket = (httpServer) => {
     socket.on("end-call", ({ receiverId }) => {
       console.log("📴 END CALL");
 
-      console.log("From:", socket.userId);
+      const callerId = socket.userId;
 
+      console.log("From:", callerId);
       console.log("To:", receiverId);
+
+      // ============================================
+      // REMOVE ACTIVE CALL
+      // ============================================
+
+      activeCalls.delete(callerId);
+      activeCalls.delete(receiverId);
+
+      console.log("🧹 ACTIVE CALL REMOVED");
+
+      // ============================================
+      // NOTIFY OTHER USER
+      // ============================================
 
       const receiverSocket = onlineUsers.get(receiverId);
 
       if (!receiverSocket) {
         console.log("⚠️ Receiver is offline");
-
         return;
       }
 
       io.to(receiverSocket).emit("call-ended", {
-        callerId: socket.userId,
+        callerId,
       });
 
       console.log("📤 CALL ENDED SENT →", receiverId);
@@ -245,6 +350,40 @@ export const initializeSocket = (httpServer) => {
 
     socket.on("disconnect", () => {
       console.log("🔴 Socket disconnected:", socket.id);
+
+      const disconnectedUserId = socket.userId;
+
+      // ============================================
+      // CLEAN ACTIVE CALL
+      // ============================================
+
+      if (disconnectedUserId && activeCalls.has(disconnectedUserId)) {
+        const otherUserId = activeCalls.get(disconnectedUserId);
+
+        console.log(
+          "📴 DISCONNECTED USER WAS IN CALL:",
+          disconnectedUserId,
+          "↔",
+          otherUserId,
+        );
+
+        // Remove both sides
+        activeCalls.delete(disconnectedUserId);
+        activeCalls.delete(otherUserId);
+
+        // Notify other user
+        const otherSocket = onlineUsers.get(otherUserId);
+
+        if (otherSocket) {
+          io.to(otherSocket).emit("call-ended", {
+            callerId: disconnectedUserId,
+          });
+        }
+      }
+
+      // ============================================
+      // REMOVE FROM ONLINE USERS
+      // ============================================
 
       for (const [userId, socketId] of onlineUsers.entries()) {
         if (socketId === socket.id) {

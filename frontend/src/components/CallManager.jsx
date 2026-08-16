@@ -133,8 +133,6 @@ const CallManager = ({ children }) => {
     console.log("✅ OUR CALL UI CLOSED");
   }, [callState, remoteUser, getRemoteUserId, endWebRTC, resetCallUI]);
 
-
-
   // =========================================================
   // REGISTER WEBRTC CONTROLS
   // =========================================================
@@ -404,6 +402,26 @@ const CallManager = ({ children }) => {
     // INCOMING CALL
     // =======================================================
 
+    // =======================================================
+    // CALL BUSY
+    // =======================================================
+
+    const handleCallBusy = ({ reason, receiverId, receiverName }) => {
+      console.log("🔴 CALL BUSY:", reason);
+
+      // Close WebRTC/calling state
+      endWebRTC();
+      resetCallUI();
+
+      if (reason === "receiver-busy") {
+        toast.error(`${receiverName || "User"} is currently on another call`);
+      } else if (reason === "caller-busy") {
+        toast.error("You are already on another call");
+      } else {
+        toast.error("User is busy");
+      }
+    };
+
     const handleIncomingCall = ({ callerId, caller, callType }) => {
       console.log("📞 INCOMING CALL", {
         callerId,
@@ -657,6 +675,8 @@ const CallManager = ({ children }) => {
 
     socket.on("call-cancelled", handleCallCancelled);
 
+    socket.on("call-busy", handleCallBusy);
+
     socket.on("call-ended", handleCallEnded);
 
     socket.on("user-offline", handleUserOffline);
@@ -681,6 +701,8 @@ const CallManager = ({ children }) => {
       socket.off("call-rejected", handleCallRejected);
 
       socket.off("call-cancelled", handleCallCancelled);
+
+      socket.off("call-busy", handleCallBusy);
 
       socket.off("call-ended", handleCallEnded);
 
@@ -716,7 +738,7 @@ const CallManager = ({ children }) => {
       {children}
 
       {(callState === "calling" || callState === "ringing") && (
-        <CallingScreen onCancel={hangUpCall}/>
+        <CallingScreen onCancel={hangUpCall} />
       )}
 
       {callState === "incoming" && <IncomingCallModal />}

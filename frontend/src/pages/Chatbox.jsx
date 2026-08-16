@@ -135,54 +135,6 @@ const Chatbox = () => {
   // START AUDIO / VIDEO CALL
   // --------------------------------------------------
 
-  // const startCall = async (type) => {
-  //   try {
-  //     if (!user || !currentUser) {
-  //       toast.error("User information not available");
-  //       return;
-  //     }
-
-  //     // Prevent accidentally starting another call
-  //     // while already in a call.
-  //     // This is optional but safer.
-  //     setCallType(type);
-
-  //     setRemoteUser({
-  //       id: user._id,
-  //       username: user.username,
-  //       full_name: user.full_name,
-  //       profile_picture: user.profile_picture,
-  //     });
-
-  //     setCallState("calling");
-
-  //     socket.emit("call-user", {
-  //       callerId: currentUser._id,
-  //       receiverId: userId,
-
-  //       // IMPORTANT
-  //       callType: type,
-
-  //       caller: {
-  //         id: currentUser._id,
-  //         full_name: currentUser.full_name,
-  //         username: currentUser.username,
-  //         profile_picture:
-  //           currentUser.profile_picture,
-  //       },
-  //     });
-
-  //     console.log(
-  //       `📞 ${type.toUpperCase()} CALL STARTED`
-  //     );
-  //   } catch (error) {
-  //     console.error("Start call error:", error);
-
-  //     toast.error(
-  //       error.message || "Failed to start call"
-  //     );
-  //   }
-  // };
 
   const startCall = async (type) => {
     try {
@@ -205,6 +157,8 @@ const Chatbox = () => {
       console.log("📞 STARTING CALL");
       console.log("caller:", callerId);
       console.log("receiver:", receiverId);
+      console.log("callerName:", currentUser.full_name);
+      console.log("receiverName:", user.full_name);
       console.log("type:", type);
       console.log("=================================");
 
@@ -218,7 +172,7 @@ const Chatbox = () => {
           user.profile_picture,
       });
 
-      setCallState("calling");
+      // setCallState("calling");
 
       socket.emit("call-user", {
         callerId,
@@ -229,8 +183,14 @@ const Chatbox = () => {
           id: callerId,
           full_name: currentUser.full_name,
           username: currentUser.username,
-          profile_picture:
-            currentUser.profile_picture,
+          profile_picture: currentUser.profile_picture,
+        },
+
+        receiver: {
+          id: receiverId,
+          full_name: user.full_name,
+          username: user.username,
+          profile_picture: user.profile_picture,
         },
       });
 
