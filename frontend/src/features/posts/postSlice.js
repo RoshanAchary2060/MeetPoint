@@ -28,18 +28,21 @@ const postsSlice = createSlice({
     },
 
     removePost: (state, action) => {
-      state.posts = state.posts.filter(
-        (post) => post._id !== action.payload,
-      );
+      state.posts = state.posts.filter((post) => post._id !== action.payload);
     },
 
     updatePost: (state, action) => {
       const index = state.posts.findIndex(
-        (p) => p._id === action.payload._id,
+        (post) => post._id === action.payload._id,
       );
 
       if (index !== -1) {
+        // Existing post → update it
         state.posts[index] = action.payload;
+      } else {
+        // Post doesn't exist in this tab's Redux store
+        // Add it so other pages/components can react to it
+        state.posts.push(action.payload);
       }
     },
   },
@@ -61,10 +64,6 @@ const postsSlice = createSlice({
   },
 });
 
-export const {
-  addPost,
-  removePost,
-  updatePost,
-} = postsSlice.actions;
+export const { addPost, removePost, updatePost } = postsSlice.actions;
 
 export default postsSlice.reducer;

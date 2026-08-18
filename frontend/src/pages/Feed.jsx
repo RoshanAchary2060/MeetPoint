@@ -9,8 +9,16 @@ import PostCard from "../components/PostCard";
 import RecentMessages from "../components/RecentMessages";
 
 import { clearSSEEvent } from "../features/sse/sseSlice.js";
-import { fetchPosts, removePost, addPost, updatePost } from "../features/posts/postSlice";
+import {
+  fetchPosts,
+  removePost,
+  addPost,
+  updatePost,
+} from "../features/posts/postSlice";
+
 import socket from "../socket/socket.js";
+import MeetPointAI from "../components/MeetPointAI.jsx";
+import MeetPointAICard from "../components/MeetPointAICard.jsx";
 
 const Feed = () => {
   const { user } = useUser();
@@ -22,11 +30,15 @@ const Feed = () => {
   const loading = useSelector((state) => state.posts.loading);
   const sseEvent = useSelector((state) => state.sse.event);
 
-  // 1. Fetch initial posts into Redux on mount
+  // ============================================================
+  // FETCH INITIAL POSTS
+  // ============================================================
+
   useEffect(() => {
     const loadInitialPosts = async () => {
       try {
         const token = await getToken();
+
         if (token) {
           dispatch(fetchPosts(token));
         }
@@ -37,14 +49,17 @@ const Feed = () => {
 
     loadInitialPosts();
   }, [dispatch, getToken]);
+
   const handleLikedPost = (updatedPost) => {
     dispatch(updatePost(updatedPost));
   };
 
-  // 2. Real-time updates via Socket.io
+  // ============================================================
+  // REAL-TIME UPDATES VIA SOCKET.IO
+  // ============================================================
+
   useEffect(() => {
     const handleNewPost = (newPost) => {
-      // 🟢 Dispatch directly to Redux store
       dispatch(addPost(newPost));
     };
 
@@ -63,7 +78,10 @@ const Feed = () => {
     };
   }, [dispatch]);
 
-  // 3. Optional SSE listener fallback (if sseSlice is active)
+  // ============================================================
+  // SSE FALLBACK
+  // ============================================================
+
   useEffect(() => {
     if (!sseEvent) return;
 
@@ -87,47 +105,79 @@ const Feed = () => {
     dispatch(clearSSEEvent());
   }, [sseEvent, dispatch]);
 
+  // ============================================================
+  // LOADING
+  // ============================================================
+
   if (loading && feeds.length === 0) {
     return <Loading />;
   }
 
+  // ============================================================
+  // RENDER
+  // ============================================================
+
   return (
     <div
-      className="h-full overflow-y-scroll no-scrollbar py-10 xl:pr-5 flex
-    items-start justify-center xl:gap-8"
+      className="
+        h-full
+        overflow-y-scroll
+        no-scrollbar
+        py-10
+        xl:pr-5
+        flex
+        items-start
+        justify-center
+        xl:gap-8
+        bg-slate-50
+        dark:bg-slate-950
+        transition-colors
+        duration-300
+      "
     >
-      {/* Stories and post list */}
+      {/* ======================================================
+          STORIES + POSTS
+      ====================================================== */}
+
       <div className="w-full max-w-2xl">
         <StoriesBar />
+
         <div className="p-4 space-y-6 w-full">
           {feeds.length > 0 ? (
-            feeds.map((post) => <PostCard key={post._id} post={post} />)
+            feeds.map((post) => (
+              <PostCard
+                key={post._id}
+                post={post}
+              />
+            ))
           ) : (
-            <p className="text-center text-gray-500 py-10">
+            <p
+              className="
+                text-center
+                text-gray-500
+                dark:text-slate-400
+                py-10
+              "
+            >
               No posts available yet.
             </p>
           )}
         </div>
       </div>
 
-      {/* Right Sidebar */}
+      {/* ======================================================
+          RIGHT SIDEBAR
+      ====================================================== */}
+
       <div className="max-xl:hidden sticky top-0">
-        <div
-          className="max-w-xs bg-white text-xs p-4 rounded-md inline-flex
-        flex-col gap-2 shadow"
-        >
-          <h3 className="text-slate-800 font-semibold">Sponsored</h3>
-          <img
-            className="w-75 h-50 rounded-md object-cover"
-            src={assets.sponsored_img}
-            alt="Sponsored advertisement"
-          />
-          <p className="text-slate-600 font-medium">Email marketing</p>
-          <p className="text-slate-400">
-            Supercharge your marketing with a powerful, easy-to-use platform
-            built for results.
-          </p>
-        </div>
+        {/* ====================================================
+            MEETPOINT AI
+        ==================================================== */}
+
+        <MeetPointAICard />
+
+        {/* RECENT MESSAGES */}
+
         <RecentMessages />
       </div>
     </div>

@@ -18,6 +18,17 @@ const createCallMessage = async ({
   callDuration = 0,
 }) => {
   try {
+    // ======================================================
+    // CREATE CALL MESSAGE
+    // ======================================================
+
+    console.log("📞 SAVING CALL MESSAGE:", {
+      callerId,
+      receiverId,
+      callType,
+      callStatus,
+      callDuration,
+    });
     const message = await Message.create({
       from_user_id: callerId,
       to_user_id: receiverId,
@@ -41,30 +52,38 @@ const createCallMessage = async ({
     console.log("Duration:", callDuration);
 
     // ======================================================
-    // SEND CALL MESSAGE TO CALLER
+    // POPULATE USERS
+    // ======================================================
+
+    const populatedMessage = await Message.findById(message._id)
+      .populate("from_user_id", "full_name username profile_picture")
+      .populate("to_user_id", "full_name username profile_picture");
+
+    // ======================================================
+    // SEND TO CALLER
     // ======================================================
 
     const callerSocket = onlineUsers.get(callerId);
 
     if (callerSocket) {
-      io.to(callerSocket).emit("new-message", message);
+      io.to(callerSocket).emit("new-message", populatedMessage);
 
       console.log("📤 CALL MESSAGE SENT TO CALLER →", callerId);
     }
 
     // ======================================================
-    // SEND CALL MESSAGE TO RECEIVER
+    // SEND TO RECEIVER
     // ======================================================
 
     const receiverSocket = onlineUsers.get(receiverId);
 
     if (receiverSocket) {
-      io.to(receiverSocket).emit("new-message", message);
+      io.to(receiverSocket).emit("new-message", populatedMessage);
 
       console.log("📤 CALL MESSAGE SENT TO RECEIVER →", receiverId);
     }
 
-    return message;
+    return populatedMessage;
   } catch (error) {
     console.error("❌ CREATE CALL MESSAGE ERROR:", error);
 
@@ -75,6 +94,38 @@ const createCallMessage = async ({
 // ==========================================================
 // INITIALIZE SOCKET
 // ==========================================================
+
+// ==========================================================
+// BROADCAST POST UPDATE
+// ==========================================================
+
+export const broadcastPostUpdate = (post) => {
+  if (!io || !post) return;
+
+  console.log("📢 BROADCASTING POST UPDATE:", post._id);
+
+  io.emit("post-updated", post);
+};
+
+// ==========================================================
+// BROADCAST COMMENT UPDATE
+// ==========================================================
+
+export const broadcastCommentUpdate = ({ post, comment, action }) => {
+  if (!io || !post) return;
+
+  console.log("💬 BROADCASTING COMMENT UPDATE:", {
+    postId: post._id,
+    action,
+    commentId: comment?._id,
+  });
+
+  io.emit("comment-updated", {
+    post,
+    comment: comment || null,
+    action,
+  });
+};
 
 export const initializeSocket = (httpServer) => {
   io = new Server(httpServer, {
@@ -560,8 +611,6 @@ export const initializeSocket = (httpServer) => {
 
       if (disconnectedUserId && activeCalls.has(disconnectedUserId)) {
         const callData = activeCalls.get(disconnectedUserId);
-
-
 
         const otherUserId = callData.otherUserId;
 

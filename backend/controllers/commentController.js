@@ -1,6 +1,6 @@
 import Comment from "../models/Comment.js";
 import Post from "../models/Post.js";
-
+import { broadcastCommentUpdate, broadcastPostUpdate } from "../socket/socketHandler.js";
 // =========================
 // ADD COMMENT
 // =========================
@@ -26,7 +26,7 @@ export const addComment = async (req, res) => {
     });
 
     const populatedComment = await Comment.findById(comment._id).populate(
-      "user_id"
+      "user_id",
     );
 
     await Post.findByIdAndUpdate(postId, {
@@ -34,6 +34,14 @@ export const addComment = async (req, res) => {
     });
 
     const updatedPost = await Post.findById(postId).populate("user");
+
+    broadcastPostUpdate(updatedPost);
+
+    broadcastCommentUpdate({
+      post: updatedPost,
+      comment: populatedComment,
+      action: "added",
+    });
 
     return res.json({
       success: true,
@@ -90,7 +98,7 @@ export const deleteComment = async (req, res) => {
 
     const comment = await Comment.findById(commentId).populate({
       path: "post_id",
-      populate: { path: "user" } // Pre-populate the post's user if needed
+      populate: { path: "user" }, // Pre-populate the post's user if needed
     });
 
     if (!comment) {
@@ -120,8 +128,17 @@ export const deleteComment = async (req, res) => {
       $inc: { comments_count: -1 },
     });
 
-    const updatedPost = await Post.findById(postId)
-      .populate("user");
+    const updatedPost = await Post.findById(postId).populate("user");
+
+    broadcastPostUpdate(updatedPost);
+
+    broadcastCommentUpdate({
+      post: updatedPost,
+      comment: {
+        _id: commentId,
+      },
+      action: "deleted",
+    });
 
     return res.json({
       success: true,

@@ -14,6 +14,7 @@ import messageRouter from "./routes/messageRoutes.js";
 import commentRouter from "./routes/commentRoutes.js";
 import callRoutes from "./routes/callRoutes.js";
 import pusher from "./utils/pusher.js";
+import aiRouter from "./routes/aiRoutes.js";
 
 const app = express();
 
@@ -55,6 +56,7 @@ app.use("/api/post", postRouter);
 app.use("/api/story", storyRouter);
 app.use("/api/message", messageRouter);
 app.use("/api/comment", commentRouter);
+app.use("/api/ai", aiRouter);
 
 app.get("/api/test-route", (req, res) => {
   res.json({ success: true, message: "Backend is updated" });

@@ -1,14 +1,25 @@
-import React from 'react'
+import React from "react";
 
-const Loading = ({ height = '100vh' }) => {
-    return (
-        <div style={{ height }} className="flex justify-center items-center h-screen">
-            <div className="animate-spin rounded-full 
-        h-10 w-10 border-3  border-purple-500 border-t-transparent">
+const Loading = ({ height = "100vh" }) => {
+  return (
+    <div
+      style={{ height }}
+      className="flex justify-center items-center bg-gray-50 dark:bg-slate-950 transition-colors"
+    >
+      <div
+        className="
+          animate-spin
+          rounded-full
+          h-10
+          w-10
+          border-4
+          border-indigo-500
+          dark:border-indigo-400
+          border-t-transparent
+        "
+      />
+    </div>
+  );
+};
 
-            </div>
-        </div>
-    )
-}
-
-export default Loading
+export default Loading;

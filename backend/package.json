@@ -13,14 +13,18 @@
   "license": "ISC",
   "dependencies": {
     "@clerk/express": "^2.1.43",
+    "@google/genai": "^2.17.1",
     "@imagekit/nodejs": "^7.10.0",
+    "@sogni-ai/sogni-client": "^5.16.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "groq-sdk": "^1.5.0",
     "inngest": "^4.13.0",
     "mongoose": "^9.7.4",
     "multer": "^2.2.0",
     "nodemailer": "^9.0.3",
+    "openai": "^7.4.0",
     "pusher": "^5.3.4",
     "socket.io": "^4.8.3"
   },

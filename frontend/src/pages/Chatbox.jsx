@@ -17,6 +17,11 @@ import toast from "react-hot-toast";
 import { useCall } from "../context/callContext";
 import socket from "../socket/socket";
 
+import {
+  addRecentMessage,
+  markConversationRead,
+} from "../features/recentMessages/recentMessagesSlice.js";
+
 const Chatbox = () => {
   const { messages } = useSelector((state) => state.messages);
   const currentUser = useSelector((state) => state.user.value);
@@ -35,8 +40,17 @@ const Chatbox = () => {
   const { setCallState, setRemoteUser, setCallType } = useCall();
 
   // --------------------------------------------------
-  // FETCH MESSAGES
+  // FORMAT MESSAGE TIME
   // --------------------------------------------------
+
+  const formatMessageTime = (date) => {
+    if (!date) return "";
+
+    return new Date(date).toLocaleTimeString([], {
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  };
 
   const formatCallDuration = (seconds = 0) => {
     const mins = Math.floor(seconds / 60);
@@ -44,6 +58,10 @@ const Chatbox = () => {
 
     return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
   };
+
+  // --------------------------------------------------
+  // FETCH MESSAGES
+  // --------------------------------------------------
 
   const fetchUserMessages = async () => {
     try {
@@ -92,6 +110,13 @@ const Chatbox = () => {
         setImage(null);
 
         dispatch(addMessages(data.message));
+
+        dispatch(
+          addRecentMessage({
+            message: data.message,
+            incrementUnread: false,
+          }),
+        );
       } else {
         toast.error(data.message);
       }
@@ -109,6 +134,8 @@ const Chatbox = () => {
   useEffect(() => {
     fetchUserMessages();
 
+    dispatch(markConversationRead(userId));
+
     return () => {
       dispatch(resetMessages());
     };
@@ -122,7 +149,7 @@ const Chatbox = () => {
     if (!userId || !connections) return;
 
     const foundUser = connections.find(
-      (connection) => connection._id === userId
+      (connection) => connection._id === userId,
     );
 
     if (foundUser) {
@@ -156,7 +183,17 @@ const Chatbox = () => {
 
       const toId = message.to_user_id?._id || message.to_user_id;
 
-      // Only add this message if it belongs to this conversation
+      console.log("📩 CALL DEBUG", {
+        currentChat: userId,
+        currentUser: currentUser?._id,
+        fromId,
+        toId,
+        belongsToCurrentChat:
+          (fromId === userId && toId === currentUser?._id) ||
+          (fromId === currentUser?._id && toId === userId),
+      });
+
+      // Only add messages belonging to this conversation
       if (
         (fromId === userId && toId === currentUser?._id) ||
         (fromId === currentUser?._id && toId === userId)
@@ -209,8 +246,6 @@ const Chatbox = () => {
         profile_picture: user.profile_picture,
       });
 
-      // setCallState("calling");
-
       socket.emit("call-user", {
         callerId,
         receiverId,
@@ -247,7 +282,20 @@ const Chatbox = () => {
 
   if (!user) {
     return (
-      <div className="flex-1 flex items-center justify-center">
+      <div
+        className="
+        flex-1
+        flex
+        items-center
+        justify-center
+        bg-slate-50
+        dark:bg-slate-950
+        text-slate-500
+        dark:text-slate-400
+        transition-colors
+        duration-300
+      "
+      >
         Loading user...
       </div>
     );
@@ -258,23 +306,75 @@ const Chatbox = () => {
   // --------------------------------------------------
 
   return (
-    <div className="flex flex-col h-full bg-slate-50">
+    <div
+      className="
+        flex
+        flex-col
+        h-full
+        bg-slate-50
+        dark:bg-slate-950
+        transition-colors
+        duration-300
+      "
+    >
       {/* ==================================================
           HEADER
       ================================================== */}
 
-      <div className="flex items-center justify-between px-5 py-4 bg-white border-b border-gray-200">
+      <div
+        className="
+          flex
+          items-center
+          justify-between
+          px-5
+          py-4
+          bg-white
+          dark:bg-slate-900
+          border-b
+          border-gray-200
+          dark:border-slate-800
+          transition-colors
+          duration-300
+        "
+      >
+        {/* USER INFO */}
+
         <div className="flex items-center gap-3">
           <img
             src={user.profile_picture || "https://placehold.co/50x50?text=User"}
             alt={user.full_name}
-            className="w-10 h-10 rounded-full object-cover"
+            className="
+              w-10
+              h-10
+              rounded-full
+              object-cover
+              ring-2
+              ring-transparent
+              dark:ring-slate-700
+            "
           />
 
           <div>
-            <h2 className="font-semibold text-gray-800">{user.full_name}</h2>
+            <h2
+              className="
+                font-semibold
+                text-gray-800
+                dark:text-white
+                transition-colors
+              "
+            >
+              {user.full_name}
+            </h2>
 
-            <p className="text-xs text-gray-500">@{user.username}</p>
+            <p
+              className="
+                text-xs
+                text-gray-500
+                dark:text-slate-400
+              "
+            >
+              @{user.username}
+            </p>
           </div>
         </div>
 
@@ -291,9 +391,12 @@ const Chatbox = () => {
               p-2.5
               rounded-full
               hover:bg-indigo-50
+              dark:hover:bg-indigo-950/50
               text-indigo-600
+              dark:text-indigo-400
               transition
               active:scale-95
+              cursor-pointer
             "
             title="Audio Call"
           >
@@ -308,9 +411,12 @@ const Chatbox = () => {
               p-2.5
               rounded-full
               hover:bg-indigo-50
+              dark:hover:bg-indigo-950/50
               text-indigo-600
+              dark:text-indigo-400
               transition
               active:scale-95
+              cursor-pointer
             "
             title="Video Call"
           >
@@ -323,8 +429,28 @@ const Chatbox = () => {
           MESSAGES
       ================================================== */}
 
-      <div className="flex-1 p-4 md:p-6 overflow-y-auto">
-        <div className="flex flex-col space-y-3 w-full max-w-5xl mx-auto">
+      <div
+        className="
+          flex-1
+          p-4
+          md:p-6
+          overflow-y-auto
+          bg-slate-50
+          dark:bg-slate-950
+          transition-colors
+          duration-300
+        "
+      >
+        <div
+          className="
+            flex
+            flex-col
+            space-y-3
+            w-full
+            max-w-5xl
+            mx-auto
+          "
+        >
           {messages && messages.length > 0 ? (
             [...messages]
               .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
@@ -341,10 +467,10 @@ const Chatbox = () => {
                     }`}
                   >
                     <div
-                      className={`p-3.5 text-sm max-w-[75%] md:max-w-[60%] shadow-sm ${
+                      className={`p-3.5 text-sm max-w-[75%] md:max-w-[60%] shadow-sm transition-colors duration-300 ${
                         isFromCurrentUser
                           ? "bg-indigo-600 text-white rounded-2xl rounded-tr-none"
-                          : "bg-white text-slate-800 rounded-2xl rounded-tl-none border border-gray-100"
+                          : "bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded-2xl rounded-tl-none border border-gray-100 dark:border-slate-800"
                       }`}
                     >
                       {/* ================================
@@ -357,8 +483,8 @@ const Chatbox = () => {
                             className={`w-10 h-10 rounded-full flex items-center justify-center ${
                               message.call_status === "declined" ||
                               message.call_status === "missed"
-                                ? "bg-red-100 text-red-500"
-                                : "bg-green-100 text-green-600"
+                                ? "bg-red-100 dark:bg-red-950/50 text-red-500"
+                                : "bg-green-100 dark:bg-green-950/50 text-green-600 dark:text-green-400"
                             }`}
                           >
                             {message.call_type === "video" ? (
@@ -387,6 +513,16 @@ const Chatbox = () => {
                                   message.call_duration,
                                 )}`}
                             </p>
+
+                            <p
+                              className={`text-[10px] mt-1 ${
+                                isFromCurrentUser
+                                  ? "text-white/70"
+                                  : "text-gray-400 dark:text-slate-500"
+                              }`}
+                            >
+                              {formatMessageTime(message.createdAt)}
+                            </p>
                           </div>
                         </div>
                       ) : (
@@ -398,7 +534,13 @@ const Chatbox = () => {
                           {message.message_type === "image" && (
                             <img
                               src={message.media_url}
-                              className="w-full max-h-80 object-cover rounded-lg mb-2"
+                              className="
+                                w-full
+                                max-h-80
+                                object-cover
+                                rounded-lg
+                                mb-2
+                              "
                               alt="Attachment"
                             />
                           )}
@@ -412,6 +554,16 @@ const Chatbox = () => {
                               {message.text}
                             </p>
                           )}
+
+                          <p
+                            className={`text-[10px] mt-1 text-right ${
+                              isFromCurrentUser
+                                ? "text-white/70"
+                                : "text-gray-400 dark:text-slate-500"
+                            }`}
+                          >
+                            {formatMessageTime(message.createdAt)}
+                          </p>
                         </>
                       )}
                     </div>
@@ -419,12 +571,20 @@ const Chatbox = () => {
                 );
               })
           ) : (
-            <div className="flex flex-col items-center justify-center text-gray-400 py-30">
+            <div
+              className="
+                flex
+                flex-col
+                items-center
+                justify-center
+                text-gray-400
+                dark:text-slate-500
+                py-30
+              "
+            >
               <p className="font-medium text-base">No messages yet</p>
 
-              <p className="text-xs text-gray-400 mt-1">
-                Say hello to {user.full_name}!
-              </p>
+              <p className="text-xs mt-1">Say hello to {user.full_name}!</p>
             </div>
           )}
 
@@ -436,7 +596,18 @@ const Chatbox = () => {
           MESSAGE INPUT
       ================================================== */}
 
-      <div className="p-4 bg-white border-t border-gray-200">
+      <div
+        className="
+          p-4
+          bg-white
+          dark:bg-slate-900
+          border-t
+          border-gray-200
+          dark:border-slate-800
+          transition-colors
+          duration-300
+        "
+      >
         <div
           className="
             flex
@@ -445,23 +616,32 @@ const Chatbox = () => {
             px-4
             py-2
             bg-slate-100
+            dark:bg-slate-800
             w-full
             max-w-5xl
             mx-auto
             rounded-full
             border
             border-gray-200
+            dark:border-slate-700
             focus-within:border-indigo-400
+            dark:focus-within:border-indigo-500
             focus-within:bg-white
+            dark:focus-within:bg-slate-800
             transition-all
           "
         >
+          {/* TEXT INPUT */}
+
           <input
             type="text"
             className="
               flex-1
               outline-none
               text-slate-800
+              dark:text-white
+              placeholder:text-slate-400
+              dark:placeholder:text-slate-500
               text-sm
               bg-transparent
               px-1
@@ -476,6 +656,8 @@ const Chatbox = () => {
             value={text}
           />
 
+          {/* IMAGE */}
+
           <label
             htmlFor="image"
             className="
@@ -488,7 +670,15 @@ const Chatbox = () => {
             {image ? (
               <img
                 src={URL.createObjectURL(image)}
-                className="h-7 w-7 object-cover rounded-md"
+                className="
+                  h-7
+                  w-7
+                  object-cover
+                  rounded-md
+                  ring-1
+                  ring-slate-300
+                  dark:ring-slate-600
+                "
                 alt="Preview"
               />
             ) : (
@@ -497,7 +687,9 @@ const Chatbox = () => {
                   w-5
                   h-5
                   text-gray-400
+                  dark:text-slate-500
                   hover:text-indigo-600
+                  dark:hover:text-indigo-400
                   transition
                 "
               />
@@ -512,11 +704,15 @@ const Chatbox = () => {
             />
           </label>
 
+          {/* SEND */}
+
           <button
             onClick={sendMessage}
             className="
               bg-indigo-600
               hover:bg-indigo-700
+              dark:bg-indigo-600
+              dark:hover:bg-indigo-500
               active:scale-95
               transition
               cursor-pointer

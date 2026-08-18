@@ -26,18 +26,18 @@ const Connections = () => {
     following = [],
   } = useSelector((state) => state.connections);
 
-  // const [currentTab, setCurrentTab] = useState("Connections");
   const location = useLocation();
-  const [activeTab, setActiveTab] = useState(
-      location.state?.activeTab || "Connections"
-    );
 
-    // Sync activeTab if navigation happens while already on the page
-    useEffect(() => {
-      if (location.state?.activeTab) {
-        setActiveTab(location.state.activeTab);
-      }
-    }, [location.state]);
+  const [activeTab, setActiveTab] = useState(
+    location.state?.activeTab || "Connections"
+  );
+
+  // Sync activeTab if navigation happens while already on the page
+  useEffect(() => {
+    if (location.state?.activeTab) {
+      setActiveTab(location.state.activeTab);
+    }
+  }, [location.state]);
 
   useEffect(() => {
     loadConnections();
@@ -97,7 +97,7 @@ const Connections = () => {
           headers: {
             Authorization: `Bearer ${await getToken()}`,
           },
-        },
+        }
       );
 
       if (data.success) {
@@ -120,7 +120,7 @@ const Connections = () => {
           headers: {
             Authorization: `Bearer ${await getToken()}`,
           },
-        },
+        }
       );
 
       if (data.success) {
@@ -143,7 +143,7 @@ const Connections = () => {
           headers: {
             Authorization: `Bearer ${await getToken()}`,
           },
-        },
+        }
       );
 
       if (data.success) {
@@ -166,7 +166,7 @@ const Connections = () => {
           headers: {
             Authorization: `Bearer ${await getToken()}`,
           },
-        },
+        }
       );
 
       if (data.success) {
@@ -189,7 +189,7 @@ const Connections = () => {
           headers: {
             Authorization: `Bearer ${await getToken()}`,
           },
-        },
+        }
       );
 
       if (data.success) {
@@ -212,7 +212,7 @@ const Connections = () => {
           headers: {
             Authorization: `Bearer ${await getToken()}`,
           },
-        },
+        }
       );
 
       if (data.success) {
@@ -237,7 +237,12 @@ const Connections = () => {
           <>
             <button
               onClick={() => navigate(`/messages/${user._id}`)}
-              className="w-full p-2 rounded bg-slate-100 hover:bg-slate-200 flex justify-center items-center gap-2"
+              className="w-full p-2 rounded
+              bg-slate-100 dark:bg-slate-800
+              hover:bg-slate-200 dark:hover:bg-slate-700
+              text-slate-800 dark:text-slate-200
+              flex justify-center items-center gap-2
+              transition"
             >
               <MessageSquare className="w-4 h-4" />
               Message
@@ -245,7 +250,11 @@ const Connections = () => {
 
             <button
               onClick={() => handleDisconnect(user._id)}
-              className="w-full p-2 rounded bg-red-50 hover:bg-red-100 text-red-600"
+              className="w-full p-2 rounded
+              bg-red-50 dark:bg-red-950/40
+              hover:bg-red-100 dark:hover:bg-red-950/70
+              text-red-600 dark:text-red-400
+              transition"
             >
               Disconnect
             </button>
@@ -256,7 +265,11 @@ const Connections = () => {
         return (
           <button
             onClick={() => handleUnfollow(user._id)}
-            className="w-full p-2 rounded bg-slate-100 hover:bg-slate-200"
+            className="w-full p-2 rounded
+            bg-slate-100 dark:bg-slate-800
+            hover:bg-slate-200 dark:hover:bg-slate-700
+            text-slate-800 dark:text-slate-200
+            transition"
           >
             Unfollow
           </button>
@@ -270,9 +283,15 @@ const Connections = () => {
                 ? handleUnfollow(user._id)
                 : handleFollow(user._id)
             }
-            className="w-full p-2 rounded bg-slate-100 hover:bg-slate-200"
+            className="w-full p-2 rounded
+            bg-slate-100 dark:bg-slate-800
+            hover:bg-slate-200 dark:hover:bg-slate-700
+            text-slate-800 dark:text-slate-200
+            transition"
           >
-            {following.some((u) => u._id === user._id) ? "Unfollow" : "Follow"}
+            {following.some((u) => u._id === user._id)
+              ? "Unfollow"
+              : "Follow"}
           </button>
         );
 
@@ -280,7 +299,11 @@ const Connections = () => {
         return (
           <button
             onClick={() => handleCancelRequest(user._id)}
-            className="w-full p-2 rounded bg-red-50 hover:bg-red-100 text-red-600"
+            className="w-full p-2 rounded
+            bg-red-50 dark:bg-red-950/40
+            hover:bg-red-100 dark:hover:bg-red-950/70
+            text-red-600 dark:text-red-400
+            transition"
           >
             Cancel Request
           </button>
@@ -291,14 +314,22 @@ const Connections = () => {
           <div className="flex gap-2">
             <button
               onClick={() => acceptConnection(user._id)}
-              className="flex-1 p-2 rounded bg-green-100 hover:bg-green-200 text-green-700"
+              className="flex-1 p-2 rounded
+              bg-green-100 dark:bg-green-950/40
+              hover:bg-green-200 dark:hover:bg-green-950/70
+              text-green-700 dark:text-green-400
+              transition"
             >
               Accept
             </button>
 
             <button
               onClick={() => handleDecline(user._id)}
-              className="flex-1 p-2 rounded bg-red-50 hover:bg-red-100 text-red-600"
+              className="flex-1 p-2 rounded
+              bg-red-50 dark:bg-red-950/40
+              hover:bg-red-100 dark:hover:bg-red-950/70
+              text-red-600 dark:text-red-400
+              transition"
             >
               Decline
             </button>
@@ -307,20 +338,24 @@ const Connections = () => {
 
       default:
         return null;
-    } // <-- Closed the switch block here
-  }; // <-- Closed renderButtons function here
+    }
+  };
 
   // -----------------------------
   // MAIN COMPONENT RETURN
   // -----------------------------
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
       <div className="max-w-6xl mx-auto p-6">
+
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900">Connections</h1>
-          <p className="text-slate-600">
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
+            Connections
+          </h1>
+
+          <p className="text-slate-600 dark:text-slate-400">
             Manage your network and discover new people
           </p>
         </div>
@@ -330,24 +365,36 @@ const Connections = () => {
           {dataArray.map((item) => (
             <div
               key={item.label}
-              className="w-40 h-20 rounded-md bg-white border border-gray-200 shadow flex flex-col justify-center items-center"
+              className="w-40 h-20 rounded-md
+              bg-white dark:bg-slate-900
+              border border-gray-200 dark:border-slate-800
+              shadow flex flex-col justify-center items-center"
             >
-              <b className="text-lg">{item.value.length}</b>
-              <p className="text-slate-500 text-sm">{item.label}</p>
+              <b className="text-lg text-slate-900 dark:text-white">
+                {item.value.length}
+              </b>
+
+              <p className="text-slate-500 dark:text-slate-400 text-sm">
+                {item.label}
+              </p>
             </div>
           ))}
         </div>
 
         {/* Tabs */}
-        <div className="inline-flex flex-wrap bg-white border border-gray-200 rounded-md shadow-sm p-1">
+        <div className="inline-flex flex-wrap
+        bg-white dark:bg-slate-900
+        border border-gray-200 dark:border-slate-800
+        rounded-md shadow-sm p-1"
+        >
           {dataArray.map((tab) => (
             <button
               key={tab.label}
               onClick={() => setActiveTab(tab.label)}
               className={`flex items-center gap-2 px-4 py-2 rounded-md transition cursor-pointer ${
                 activeTab === tab.label
-                  ? "bg-slate-100 text-black font-medium"
-                  : "text-slate-500 hover:text-black"
+                  ? "bg-slate-100 dark:bg-slate-800 text-black dark:text-white font-medium"
+                  : "text-slate-500 dark:text-slate-400 hover:text-black dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800/50"
               }`}
             >
               <tab.icon className="w-4 h-4" />
@@ -358,7 +405,7 @@ const Connections = () => {
 
         {/* Empty State */}
         {activeTabData.length === 0 && (
-          <div className="text-center text-slate-500 mt-16">
+          <div className="text-center text-slate-500 dark:text-slate-400 mt-16">
             No users found.
           </div>
         )}
@@ -368,7 +415,9 @@ const Connections = () => {
           {activeTabData.map((user) => (
             <div
               key={user._id}
-              className="w-full max-w-[350px] bg-white rounded-xl shadow p-5 flex gap-4"
+              className="w-full max-w-[350px]
+              bg-white dark:bg-slate-900
+              rounded-xl shadow p-5 flex gap-4"
             >
               <img
                 src={user.profile_picture}
@@ -377,10 +426,15 @@ const Connections = () => {
               />
 
               <div className="flex-1">
-                <h2 className="font-semibold">{user.full_name}</h2>
-                <p className="text-slate-500 text-sm">@{user.username}</p>
+                <h2 className="font-semibold text-slate-900 dark:text-white">
+                  {user.full_name}
+                </h2>
 
-                <p className="text-sm text-gray-600 mt-2">
+                <p className="text-slate-500 dark:text-slate-400 text-sm">
+                  @{user.username}
+                </p>
+
+                <p className="text-sm text-gray-600 dark:text-slate-400 mt-2">
                   {user.bio?.slice(0, 45)}
                   {user.bio?.length > 45 && "..."}
                 </p>
@@ -388,7 +442,11 @@ const Connections = () => {
                 <div className="mt-4 flex flex-col gap-2">
                   <button
                     onClick={() => navigate(`/profile/${user._id}`)}
-                    className="w-full rounded bg-gradient-to-r from-indigo-500 to-purple-600 text-white p-2 hover:from-indigo-600 hover:to-purple-700 transition"
+                    className="w-full rounded
+                    bg-gradient-to-r from-indigo-500 to-purple-600
+                    text-white p-2
+                    hover:from-indigo-600 hover:to-purple-700
+                    transition"
                   >
                     View Profile
                   </button>

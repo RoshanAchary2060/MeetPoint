@@ -14,6 +14,7 @@ import Profile from "./pages/Profile";
 import CreatePost from "./pages/CreatePost";
 import Layout from "./pages/Layout";
 import Post from "./pages/Post";
+import MeetPointAI from "./components/MeetPointAI";
 
 import CallManager from "./components/CallManager";
 import socket from "./socket/socket";
@@ -22,6 +23,8 @@ import { fetchUser } from "./features/user/usersSlice";
 import { fetchConnections } from "./features/connections/connectionsSlice";
 import { setSSEEvent } from "./features/sse/sseSlice";
 import { addMessages } from "./features/messages/messagesSlice";
+import { addRecentMessage } from "./features/recentMessages/recentMessagesSlice.js";
+import { updatePost } from "./features/posts/postSlice.js";
 
 const App = () => {
   const { user } = useUser();
@@ -81,6 +84,12 @@ const App = () => {
 
     const onCallRinging = () => {
       dispatch(setSSEEvent({ type: "CALL_RINGING" }));
+    };
+
+    const onPostLiked = (updatedPost) => {
+      console.log("❤️ POST_LIKED received:", updatedPost);
+
+      dispatch(updatePost(updatedPost));
     };
 
     const onCallAccepted = () => {
@@ -161,20 +170,55 @@ const App = () => {
     socket.on("connection-request-received", onConnectionRequestReceived);
     socket.on("new-follower-received", onNewFollowerReceived);
     socket.on("relationship-update", onRelationshipUpdate);
+    socket.on("POST_LIKED", onPostLiked);
+    const onPostUpdated = (updatedPost) => {
+      console.log("📢 POST UPDATED FROM SERVER:", updatedPost);
+
+      dispatch(updatePost(updatedPost));
+    };
+
+    const onCommentUpdated = (data) => {
+      console.log("💬 COMMENT UPDATED FROM SERVER:", data);
+
+      // Update post in Redux so comments_count changes everywhere
+      dispatch(updatePost(data.post));
+    };
+    socket.on("post-updated", onPostUpdated);
+
+    socket.on("comment-updated", onCommentUpdated);
 
     const onNewMessage = (message) => {
       console.log("📩 Incoming real-time message received:", message);
 
-      // Add message to Redux
+      // --------------------------------------------------
+      // CHAT MESSAGES
+      // --------------------------------------------------
+
       dispatch(addMessages(message));
 
-      // Call history messages should NOT trigger
-      // the normal "New Message" notification.
+      // --------------------------------------------------
+      // RECENT MESSAGES
+      // --------------------------------------------------
+
+      dispatch(
+        addRecentMessage({
+          message,
+          incrementUnread: true,
+        }),
+      );
+
+      // --------------------------------------------------
+      // CALL HISTORY
+      // --------------------------------------------------
+
       if (message.message_type === "call") {
         return;
       }
 
-      // Only normal messages trigger notification
+      // --------------------------------------------------
+      // NORMAL MESSAGE NOTIFICATION
+      // --------------------------------------------------
+
       dispatch(
         setSSEEvent({
           type: "NEW_MESSAGE",
@@ -203,6 +247,9 @@ const App = () => {
       socket.off("connection-request-received", onConnectionRequestReceived);
       socket.off("new-follower-received", onNewFollowerReceived);
       socket.off("relationship-update", onRelationshipUpdate);
+      socket.off("POST_LIKED", onPostLiked);
+      socket.off("post-updated", onPostUpdated);
+      socket.off("comment-updated", onCommentUpdated);
 
       // Disconnect socket if user signs out
       if (!user && socket.connected) {
@@ -229,6 +276,7 @@ const App = () => {
           <Route path="/profile" element={<Profile />} />
           <Route path="/profile/:profileId" element={<Profile />} />
           <Route path="/create-post" element={<CreatePost />} />
+          <Route path="/ai" element={<MeetPointAI />} />
         </Route>
       </Routes>
     </CallManager>

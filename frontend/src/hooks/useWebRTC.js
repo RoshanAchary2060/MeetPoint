@@ -2,45 +2,16 @@ import { useRef, useState, useCallback } from "react";
 
 import { useCall } from "../context/callContext";
 
-
-let cachedServers = null;
-
 // =========================================================
 // ICE SERVERS
 // =========================================================
 
-const getIceServers = async () => {
-  if (cachedServers) {
-    return cachedServers;
-  }
-
-  try {
-    const res = await fetch(
-      `${import.meta.env.VITE_BASEURL}/api/turn-credentials`,
-    );
-
-    const data = await res.json();
-
-    if (data.success && Array.isArray(data.iceServers)) {
-      cachedServers = {
-        iceServers: data.iceServers,
-      };
-    } else {
-      throw new Error("Invalid TURN credentials");
-    }
-  } catch (error) {
-    console.error("TURN failed, using STUN:", error);
-
-    cachedServers = {
-      iceServers: [
-        {
-          urls: "stun:stun.l.google.com:19302",
-        },
-      ],
-    };
-  }
-
-  return cachedServers;
+const ICE_SERVERS = {
+  iceServers: [
+    {
+      urls: "stun:stun.l.google.com:19302",
+    },
+  ],
 };
 
 // =========================================================
@@ -110,41 +81,58 @@ const useWebRTC = () => {
   // CLEANUP
   // =========================================================
 
-  // Inside cleanup() in useWebRTC.js
   const cleanup = useCallback(() => {
     console.log("🧹 CLEANING WEBRTC");
 
     if (localStream.current) {
       localStream.current.getTracks().forEach((track) => track.stop());
+
       localStream.current = null;
     }
 
     if (peerConnection.current) {
       peerConnection.current.ontrack = null;
+
       peerConnection.current.onicecandidate = null;
+
       peerConnection.current.oniceconnectionstatechange = null;
+
       peerConnection.current.close();
+
       peerConnection.current = null;
     }
 
-    if (localVideoRef.current) localVideoRef.current.srcObject = null;
-    if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+    if (localVideoRef.current) {
+      localVideoRef.current.srcObject = null;
+    }
+
+    if (remoteVideoRef.current) {
+      remoteVideoRef.current.srcObject = null;
+    }
+
     if (remoteAudioRef.current) {
       remoteAudioRef.current.pause();
+
       remoteAudioRef.current.srcObject = null;
+
       remoteAudioRef.current = null;
     }
 
     remoteStream.current = null;
+
     iceCandidatesQueue.current = [];
 
     setLocalStream(null);
+
     setRemoteStream(null);
+
     setIsCallActive(false);
+
     setIsMuted(false);
+
     setIsCameraOn(true);
 
-    // 💡 CRITICAL: Reset call state so UI closes!
+    // Reset call state so UI closes
     setCallState("idle");
   }, [setLocalStream, setRemoteStream, setCallState]);
 
@@ -221,9 +209,13 @@ const useWebRTC = () => {
         cleanup();
       }
 
-      const iceServers = await getIceServers();
+      // =====================================================
+      // STUN ONLY
+      // =====================================================
 
-      const pc = new RTCPeerConnection(iceServers);
+      const pc = new RTCPeerConnection(ICE_SERVERS);
+
+      console.log("🌐 RTCPeerConnection created using STUN only");
 
       // -------------------------
       // REMOTE TRACK
@@ -318,13 +310,14 @@ const useWebRTC = () => {
 
           setIsCallActive(true);
 
-          // THIS is the ONLY place
+          // This is the ONLY place
           // where we declare connected.
           setCallState("connected");
 
           if (callType === "video") {
             setTimeout(() => {
               attachLocalVideo();
+
               attachRemoteVideo();
             }, 100);
           }
