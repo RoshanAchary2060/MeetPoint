@@ -6,7 +6,7 @@ import { ArrowLeft, LogIn, UserPlus, Sun, Moon } from "lucide-react";
 
 import api from "../api/axios";
 import PostCard from "../components/PostCard.jsx";
-import { useTheme } from "../context/ThemeContext";
+import { useTheme } from "../context/themeContext";
 import { assets } from "../assets/assets.js";
 
 const Post = () => {

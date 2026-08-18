@@ -5,7 +5,7 @@ import { assets } from "../assets/assets";
 import { CirclePlus, LogOut, Sun, Moon } from "lucide-react";
 import { UserButton, useClerk } from "@clerk/clerk-react";
 import { useSelector } from "react-redux";
-import { useTheme } from "../context/ThemeContext";
+import { useTheme } from "../context/themeContext.jsx";
 
 const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
   const navigate = useNavigate();
