@@ -1,5 +1,5 @@
 import React from "react";
-import Sidebar from "../components/Sidebar";
+import Sidebar from "../components/Sidebar.jsx";
 import { Outlet } from "react-router-dom";
 import { Menu, X } from "lucide-react";
 import Loading from "../components/Loading";
