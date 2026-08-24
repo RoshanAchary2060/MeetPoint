@@ -22,7 +22,7 @@ const Layout = () => {
       {/* =====================================================
           MAIN CONTENT
       ===================================================== */}
-      <main className="flex-1 min-w-0 h-full overflow-hidden bg-slate-50 dark:bg-slate-950">
+      <main className="flex-1 min-w-0 h-full overflow-y-auto bg-slate-50 dark:bg-slate-950">
         <Outlet />
       </main>
 

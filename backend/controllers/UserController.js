@@ -78,27 +78,27 @@ export const updateUserData = async (req, res) => {
 
     // Upload Profile Picture
     if (profileFile) {
-          const buffer = profileFile.buffer;
-          const base64File = buffer.toString("base64");
-          const profileUpload = await imagekit.files.upload({
-            file: base64File,
-            fileName: profileFile.originalname,
-          });
+      const buffer = profileFile.buffer;
+      const base64File = buffer.toString("base64");
+      const profileUpload = await imagekit.files.upload({
+        file: base64File,
+        fileName: profileFile.originalname,
+      });
 
-          updatedData.profile_picture = profileUpload.url;
-        }
+      updatedData.profile_picture = profileUpload.url;
+    }
 
-        // Upload Cover Photo
-        if (coverFile) {
-          const buffer = coverFile.buffer;
-          const base64File = buffer.toString("base64");
-          const coverUpload = await imagekit.files.upload({
-            file: base64File,
-            fileName: coverFile.originalname,
-          });
+    // Upload Cover Photo
+    if (coverFile) {
+      const buffer = coverFile.buffer;
+      const base64File = buffer.toString("base64");
+      const coverUpload = await imagekit.files.upload({
+        file: base64File,
+        fileName: coverFile.originalname,
+      });
 
-          updatedData.cover_photo = coverUpload.url;
-        }
+      updatedData.cover_photo = coverUpload.url;
+    }
 
     const updatedUser = await User.findByIdAndUpdate(userId, updatedData, {
       new: true,
@@ -116,31 +116,97 @@ export const updateUserData = async (req, res) => {
   }
 };
 // FIND USERS USING USERNAME, EMAIL, LOCATION, NAME
+// FIND USERS FOR DISCOVER
 export const discoverUsers = async (req, res) => {
   try {
     const userId = getUserIdFromReq(req);
-    const { input } = req.body;
+    const { filter, input } = req.body;
 
-    const allUsers = await User.find({
-      $or: [
-        { username: new RegExp(input, "i") },
-        { email: new RegExp(input, "i") },
-        { full_name: new RegExp(input, "i") },
-        { location: new RegExp(input, "i") },
-      ],
-    });
+    if (!filter || input === undefined || input === null) {
+      return res.json({
+        success: false,
+        message: "Search filter and input are required",
+      });
+    }
 
-    const filteredUsers = allUsers.filter((user) => user._id !== userId);
-    res.json({
+    const value = String(input).trim();
+
+    if (!value) {
+      return res.json({
+        success: false,
+        message: "Please enter something to search",
+      });
+    }
+
+    let query = {
+      _id: { $ne: userId },
+    };
+
+    // FULL NAME
+    if (filter === "full_name") {
+      query.full_name = new RegExp(value, "i");
+    }
+
+    // USERNAME
+    else if (filter === "username") {
+      query.username = new RegExp(value, "i");
+    }
+
+    // LOCATION
+    else if (filter === "location") {
+      query.location = new RegExp(value, "i");
+    }
+
+    // JOINED DAYS
+    else if (filter === "joined_days") {
+      const days = Number(value);
+
+      if (!Number.isInteger(days) || days < 0) {
+        return res.json({
+          success: false,
+          message: "Joined days must be a valid whole number",
+        });
+      }
+
+      // Start of the calendar date X days ago.
+      // Example:
+      // Today = Aug 18
+      // 5 days = Aug 13 → Aug 18 inclusive
+      const now = new Date();
+
+      const cutoff = new Date(now);
+      cutoff.setDate(cutoff.getDate() - days);
+      cutoff.setHours(0, 0, 0, 0);
+
+      query.createdAt = {
+        $gte: cutoff,
+        $lte: now,
+      };
+    }
+
+    // INVALID FILTER
+    else {
+      return res.json({
+        success: false,
+        message: "Invalid search filter",
+      });
+    }
+
+    const users = await User.find(query).sort({ createdAt: -1 });
+
+    return res.json({
       success: true,
-      users: filteredUsers,
+      users,
     });
   } catch (error) {
-    console.log(error);
-    res.json({ success: false, message: error.message });
+    console.error("Discover users error:", error);
+
+    return res.json({
+      success: false,
+      message: error.message,
+    });
   }
 };
-
 // FOLLOW USER
 export const followUser = async (req, res) => {
   try {
@@ -298,12 +364,14 @@ export const sendConnectionRequest = async (req, res) => {
     console.error(error);
     res.json({ success: false, message: error.message });
   }
-};//
+}; //
 //
 export const getUserConnections = async (req, res) => {
   try {
     const userId = getUserIdFromReq(req);
-    const user = await User.findById(userId).populate("connections followers following");
+    const user = await User.findById(userId).populate(
+      "connections followers following",
+    );
     if (!user) {
       return res.json({ success: false, message: "User not found" });
     }
@@ -311,10 +379,15 @@ export const getUserConnections = async (req, res) => {
     const followers = user.followers;
     const following = user.following;
     const pendingConnections = (
-      await Connection.find({ to_user_id: userId, status: "pending" }).populate("from_user_id")
+      await Connection.find({ to_user_id: userId, status: "pending" }).populate(
+        "from_user_id",
+      )
     ).map((connection) => connection.from_user_id);
     const sentConnections = (
-      await Connection.find({ from_user_id: userId, status: "pending" }).populate("to_user_id")
+      await Connection.find({
+        from_user_id: userId,
+        status: "pending",
+      }).populate("to_user_id")
     ).map((connection) => connection.to_user_id);
     res.json({
       success: true,
@@ -328,7 +401,7 @@ export const getUserConnections = async (req, res) => {
     console.error(error);
     res.json({ success: false, message: error.message });
   }
-};// ACCEPT CONNECTION REQUEST
+}; // ACCEPT CONNECTION REQUEST
 export const acceptConnectionRequest = async (req, res) => {
   try {
     const userId = getUserIdFromReq(req);
@@ -337,11 +410,14 @@ export const acceptConnectionRequest = async (req, res) => {
     const connection = await Connection.findOneAndUpdate(
       { from_user_id: id, to_user_id: userId, status: "pending" },
       { status: "accepted" },
-      { new: true }
+      { new: true },
     );
 
     if (!connection) {
-      return res.json({ success: false, message: "Request not found or already accepted" });
+      return res.json({
+        success: false,
+        message: "Request not found or already accepted",
+      });
     }
 
     await User.findByIdAndUpdate(userId, { $addToSet: { connections: id } });
@@ -389,7 +465,10 @@ export const declineConnectionRequest = async (req, res) => {
     });
 
     if (!connection) {
-      return res.json({ success: false, message: "Connection request not found" });
+      return res.json({
+        success: false,
+        message: "Connection request not found",
+      });
     }
 
     const targetSocketId = getReceiverSocketId(id);
@@ -416,7 +495,10 @@ export const cancelConnectionRequest = async (req, res) => {
     });
 
     if (!connection) {
-      return res.json({ success: false, message: "Connection request not found" });
+      return res.json({
+        success: false,
+        message: "Connection request not found",
+      });
     }
 
     const targetSocketId = getReceiverSocketId(targetId);
@@ -429,7 +511,7 @@ export const cancelConnectionRequest = async (req, res) => {
     console.error(error);
     res.json({ success: false, message: error.message });
   }
-}
+};
 // DISCONNECT (Remove mutual connection)
 export const disconnectUser = async (req, res) => {
   try {
@@ -462,5 +544,155 @@ export const disconnectUser = async (req, res) => {
   } catch (error) {
     console.error(error);
     res.json({ success: false, message: error.message });
+  }
+};
+
+// GET PEOPLE YOU MAY KNOW
+export const getPeopleYouMayKnow = async (req, res) => {
+  try {
+    const userId = getUserIdFromReq(req);
+
+    const currentUser = await User.findById(userId)
+      .select("connections followers following location")
+      .lean();
+
+    if (!currentUser) {
+      return res.json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // ---------------------------------------------------------
+    // USERS WE MUST EXCLUDE
+    // ---------------------------------------------------------
+
+    const excludedIds = new Set([
+      userId,
+      ...(currentUser.connections || []),
+      ...(currentUser.followers || []),
+      ...(currentUser.following || []),
+    ]);
+
+    // ---------------------------------------------------------
+    // PENDING CONNECTION REQUESTS
+    // ---------------------------------------------------------
+
+    const pendingRequests = await Connection.find({
+      $or: [
+        { from_user_id: userId, status: "pending" },
+        { to_user_id: userId, status: "pending" },
+      ],
+    })
+      .select("from_user_id to_user_id")
+      .lean();
+
+    pendingRequests.forEach((request) => {
+      if (request.from_user_id === userId) {
+        excludedIds.add(request.to_user_id);
+      } else {
+        excludedIds.add(request.from_user_id);
+      }
+    });
+
+    // ---------------------------------------------------------
+    // 1. FIND MUTUAL CONNECTIONS
+    // ---------------------------------------------------------
+
+    const mutualCounts = new Map();
+
+    if (currentUser.connections?.length) {
+      const connectedUsers = await User.find({
+        _id: { $in: currentUser.connections },
+      })
+        .select("connections")
+        .lean();
+
+      connectedUsers.forEach((connectedUser) => {
+        (connectedUser.connections || []).forEach((candidateId) => {
+          if (excludedIds.has(candidateId)) return;
+
+          mutualCounts.set(
+            candidateId,
+            (mutualCounts.get(candidateId) || 0) + 1,
+          );
+        });
+      });
+    }
+
+    // ---------------------------------------------------------
+    // 2. GET MUTUAL USERS
+    // ---------------------------------------------------------
+
+    const mutualIds = [...mutualCounts.keys()];
+
+    const mutualUsers = mutualIds.length
+      ? await User.find({
+          _id: { $in: mutualIds },
+        }).lean()
+      : [];
+
+    const mutualRecommendations = mutualUsers
+      .map((user) => ({
+        ...user,
+        recommendation: {
+          type: "mutual",
+          count: mutualCounts.get(user._id),
+        },
+      }))
+      .sort((a, b) => b.recommendation.count - a.recommendation.count);
+
+    // ---------------------------------------------------------
+    // 3. SAME LOCATION
+    // ---------------------------------------------------------
+
+    let locationRecommendations = [];
+
+    if (currentUser.location?.trim()) {
+      const sameLocationUsers = await User.find({
+        _id: {
+          $nin: [...excludedIds, ...mutualIds],
+        },
+        location: {
+          $regex: `^${currentUser.location.trim()}$`,
+          $options: "i",
+        },
+      })
+        .sort({ createdAt: -1 })
+        .limit(20)
+        .lean();
+
+      locationRecommendations = sameLocationUsers.map((user) => ({
+        ...user,
+        recommendation: {
+          type: "location",
+          count: 0,
+        },
+      }));
+    }
+
+    // ---------------------------------------------------------
+    // 4. COMBINE
+    // ---------------------------------------------------------
+
+    const recommendations = [
+      ...mutualRecommendations,
+      ...locationRecommendations,
+    ];
+
+    // Keep the first 20 recommendations
+    const limitedRecommendations = recommendations.slice(0, 20);
+
+    return res.json({
+      success: true,
+      users: limitedRecommendations,
+    });
+  } catch (error) {
+    console.error("People You May Know error:", error);
+
+    return res.json({
+      success: false,
+      message: error.message,
+    });
   }
 };

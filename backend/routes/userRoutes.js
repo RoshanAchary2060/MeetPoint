@@ -6,6 +6,7 @@ import {
   disconnectUser,
   discoverUsers,
   followUser,
+  getPeopleYouMayKnow,
   getUserConnections,
   getUserData,
   getUserProfiles,
@@ -49,5 +50,5 @@ userRouter.get("/recent-messages", protect, getUserRecentMessages);
 userRouter.post("/decline", protect, declineConnectionRequest);
 userRouter.post("/cancel-request", protect, cancelConnectionRequest);
 userRouter.post("/disconnect", protect, disconnectUser);
-
+userRouter.get("/suggestions", protect, getPeopleYouMayKnow);
 export default userRouter;

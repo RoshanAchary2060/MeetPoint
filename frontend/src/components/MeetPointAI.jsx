@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Sparkles,
   MessageCircle,
@@ -7,6 +7,8 @@ import {
   Image as ImageIcon,
   Loader2,
   RefreshCw,
+  Paperclip,
+  X,
 } from "lucide-react";
 import { useAuth } from "@clerk/clerk-react";
 import api from "../api/axios";
@@ -18,7 +20,152 @@ const MeetPointAI = () => {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  const [generatedImage, setGeneratedImage] = useState(null);
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+
+  const [dragActive, setDragActive] = useState(false);
+
+  const fileInputRef = useRef(null);
+
+  // =====================================================
+  // IMAGE SELECT
+  // =====================================================
+
+  const handleImageSelect = (file) => {
+    if (!file) return;
+
+    // ---------------------------------------------------
+    // IMAGE CHECK
+    // ---------------------------------------------------
+
+    if (!file.type.startsWith("image/")) {
+      alert("Please select an image file.");
+      return;
+    }
+
+    // ---------------------------------------------------
+    // 20MB LIMIT
+    // ---------------------------------------------------
+
+    if (file.size > 20 * 1024 * 1024) {
+      alert("Image must be smaller than 20MB.");
+      return;
+    }
+
+    // ---------------------------------------------------
+    // CLEAN PREVIOUS PREVIEW
+    // ---------------------------------------------------
+
+    if (imagePreview) {
+      URL.revokeObjectURL(imagePreview);
+    }
+
+    // ---------------------------------------------------
+    // SET IMAGE
+    // ---------------------------------------------------
+
+    setSelectedImage(file);
+
+    const previewUrl = URL.createObjectURL(file);
+
+    setImagePreview(previewUrl);
+  };
+
+  // =====================================================
+  // REMOVE IMAGE
+  // =====================================================
+
+  const removeSelectedImage = () => {
+    if (imagePreview) {
+      URL.revokeObjectURL(imagePreview);
+    }
+
+    setSelectedImage(null);
+    setImagePreview(null);
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  // =====================================================
+  // CLIPBOARD IMAGE PASTE
+  // =====================================================
+
+  useEffect(() => {
+    const handlePaste = (event) => {
+      const items = event.clipboardData?.items;
+
+      if (!items) return;
+
+      for (const item of items) {
+        if (item.type.startsWith("image/")) {
+          const file = item.getAsFile();
+
+          if (file) {
+            handleImageSelect(file);
+          }
+
+          event.preventDefault();
+
+          break;
+        }
+      }
+    };
+
+    window.addEventListener("paste", handlePaste);
+
+    return () => {
+      window.removeEventListener("paste", handlePaste);
+    };
+  }, [imagePreview]);
+
+  // =====================================================
+  // CLEANUP IMAGE PREVIEW
+  // =====================================================
+
+  useEffect(() => {
+    return () => {
+      if (imagePreview) {
+        URL.revokeObjectURL(imagePreview);
+      }
+    };
+  }, [imagePreview]);
+
+  // =====================================================
+  // DRAG EVENTS
+  // =====================================================
+
+  const handleDragOver = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (!loading) {
+      setDragActive(true);
+    }
+  };
+
+  const handleDragLeave = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    setDragActive(false);
+  };
+
+  const handleDrop = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    setDragActive(false);
+
+    if (loading) return;
+
+    const file = event.dataTransfer.files?.[0];
+
+    if (file) {
+      handleImageSelect(file);
+    }
+  };
 
   // =====================================================
   // SEND MESSAGE TO MEETPOINT AI
@@ -27,7 +174,22 @@ const MeetPointAI = () => {
   const sendToAI = async (customMessage = null) => {
     const userMessage = (customMessage || message).trim();
 
-    if (!userMessage || loading) return;
+    // ---------------------------------------------------
+    // ALLOW IMAGE ONLY
+    // ---------------------------------------------------
+
+    if (!userMessage && !selectedImage) {
+      return;
+    }
+
+    if (loading) return;
+
+    const imageToSend = selectedImage;
+    const imageToShow = imagePreview;
+
+    // ---------------------------------------------------
+    // CLEAR INPUT
+    // ---------------------------------------------------
 
     setMessage("");
 
@@ -40,25 +202,44 @@ const MeetPointAI = () => {
       {
         role: "user",
         content: userMessage,
+        image: imageToShow,
       },
     ]);
 
     try {
       setLoading(true);
 
+      // -------------------------------------------------
+      // CLERK TOKEN
+      // -------------------------------------------------
+
       const token = await getToken();
 
-      const response = await api.post(
-        "/api/ai",
-        {
-          message: userMessage,
+      // -------------------------------------------------
+      // FORM DATA
+      // -------------------------------------------------
+
+      const formData = new FormData();
+
+      formData.append("message", userMessage);
+
+      if (imageToSend) {
+        formData.append("image", imageToSend);
+      }
+
+      // -------------------------------------------------
+      // API REQUEST
+      // -------------------------------------------------
+
+      const response = await api.post("/api/ai", formData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
         },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      );
+      });
+
+      // -------------------------------------------------
+      // CHECK RESPONSE
+      // -------------------------------------------------
 
       if (!response.data.success) {
         throw new Error(response.data.message || "AI request failed");
@@ -85,8 +266,6 @@ const MeetPointAI = () => {
       // =================================================
 
       if (result.imageUrl) {
-        setGeneratedImage(result.imageUrl);
-
         setMessages((prev) => [
           ...prev,
           {
@@ -96,6 +275,12 @@ const MeetPointAI = () => {
           },
         ]);
       }
+
+      // -------------------------------------------------
+      // REMOVE ATTACHED IMAGE
+      // -------------------------------------------------
+
+      removeSelectedImage();
     } catch (error) {
       console.error("❌ MeetPoint AI error:", error);
 
@@ -121,19 +306,7 @@ const MeetPointAI = () => {
   };
 
   // =====================================================
-  // USE IMAGE IN POST
-  // =====================================================
-
-  const handleUseImage = (imageUrl) => {
-    setGeneratedImage(imageUrl);
-
-    // Later we can connect this directly
-    // to the CreatePost component.
-    console.log("🖼️ Image selected for post:", imageUrl);
-  };
-
-  // =====================================================
-  // UI
+  // RENDER
   // =====================================================
 
   return (
@@ -223,6 +396,7 @@ const MeetPointAI = () => {
                     px-4
                     py-3
                     text-sm
+
                     ${
                       item.role === "user"
                         ? `
@@ -246,7 +420,25 @@ const MeetPointAI = () => {
                   `}
                 >
                   {/* =================================================
-                      IMAGE MESSAGE
+                      USER ATTACHED IMAGE
+                  ================================================= */}
+
+                  {item.image && (
+                    <img
+                      src={item.image}
+                      alt="Attached"
+                      className="
+                        rounded-xl
+                        max-w-[280px]
+                        max-h-[280px]
+                        object-cover
+                        mb-2
+                      "
+                    />
+                  )}
+
+                  {/* =================================================
+                      GENERATED IMAGE
                   ================================================= */}
 
                   {item.type === "image" ? (
@@ -262,11 +454,11 @@ const MeetPointAI = () => {
                         "
                       />
 
-                      {/* IMAGE ACTIONS */}
-
                       <div className="flex gap-2 mt-3">
-                        <button
-                          onClick={() => handleUseImage(item.content)}
+                        {/* <button
+                          onClick={() =>
+                            console.log("Use image in post", item.content)
+                          }
                           className="
                             px-3
                             py-2
@@ -282,9 +474,9 @@ const MeetPointAI = () => {
                           "
                         >
                           Use in Post
-                        </button>
+                        </button>*/}
 
-                        <button
+                        {/* <button
                           onClick={() =>
                             useSuggestion(
                               "Generate another image with a different style",
@@ -309,15 +501,17 @@ const MeetPointAI = () => {
                         >
                           <RefreshCw className="w-3 h-3" />
                           Regenerate
-                        </button>
+                        </button>*/}
                       </div>
                     </div>
                   ) : (
                     /* =================================================
-                       TEXT MESSAGE
-                       ================================================= */
+                       TEXT
+                    ================================================= */
 
-                    <div className="whitespace-pre-wrap">{item.content}</div>
+                    item.content && (
+                      <div className="whitespace-pre-wrap">{item.content}</div>
+                    )
                   )}
                 </div>
               </div>
@@ -383,20 +577,111 @@ const MeetPointAI = () => {
         ===================================================== */}
 
         <div
-          className="
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          className={`
             max-w-3xl
             mx-auto
             bg-white
             dark:bg-slate-900
             border
-            border-gray-200
-            dark:border-slate-800
             rounded-2xl
             shadow-sm
             p-3
             mb-8
-          "
+            transition
+
+            ${
+              dragActive
+                ? `
+                  border-indigo-500
+                  ring-2
+                  ring-indigo-500/20
+                `
+                : `
+                  border-gray-200
+                  dark:border-slate-800
+                `
+            }
+          `}
         >
+          {/* =================================================
+              DRAG OVER MESSAGE
+          ================================================= */}
+
+          {dragActive && (
+            <div
+              className="
+                mb-3
+                rounded-xl
+                border-2
+                border-dashed
+                border-indigo-400
+                bg-indigo-50
+                dark:bg-indigo-950/30
+                px-4
+                py-6
+                text-center
+                text-sm
+                text-indigo-600
+                dark:text-indigo-400
+              "
+            >
+              Drop your image here 📸
+            </div>
+          )}
+
+          {/* =================================================
+              IMAGE PREVIEW
+          ================================================= */}
+
+          {imagePreview && (
+            <div className="px-3 pt-2 pb-3">
+              <div className="relative inline-block">
+                <img
+                  src={imagePreview}
+                  alt="Selected"
+                  className="
+                    w-24
+                    h-24
+                    object-cover
+                    rounded-xl
+                    border
+                    border-gray-200
+                    dark:border-slate-700
+                  "
+                />
+
+                <button
+                  type="button"
+                  onClick={removeSelectedImage}
+                  className="
+                    absolute
+                    -top-2
+                    -right-2
+                    w-6
+                    h-6
+                    rounded-full
+                    bg-slate-800
+                    text-white
+                    flex
+                    items-center
+                    justify-center
+                    hover:bg-red-500
+                    transition
+                  "
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* =================================================
+              TEXTAREA
+          ================================================= */}
+
           <textarea
             value={message}
             onChange={(e) => setMessage(e.target.value)}
@@ -408,7 +693,11 @@ const MeetPointAI = () => {
               }
             }}
             rows={2}
-            placeholder="Ask MeetPoint AI anything..."
+            placeholder={
+              selectedImage
+                ? "Ask something about this image..."
+                : "Ask MeetPoint AI anything..."
+            }
             className="
               w-full
               resize-none
@@ -423,10 +712,79 @@ const MeetPointAI = () => {
             "
           />
 
-          <div className="flex items-center justify-end mt-2">
+          {/* =================================================
+              INPUT ACTIONS
+          ================================================= */}
+
+          <div
+            className="
+              flex
+              items-center
+              justify-between
+              mt-2
+            "
+          >
+            {/* =================================================
+                IMAGE INPUT
+            ================================================= */}
+
+            <div className="flex items-center">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  handleImageSelect(e.target.files?.[0]);
+
+                  e.target.value = "";
+                }}
+              />
+
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={loading}
+                title="Attach image"
+                className="
+                  w-11
+                  h-11
+                  shrink-0
+                  rounded-xl
+                  flex
+                  items-center
+                  justify-center
+                  text-slate-500
+                  dark:text-slate-400
+                  hover:bg-slate-100
+                  dark:hover:bg-slate-800
+                  transition
+                  disabled:opacity-40
+                "
+              >
+                <Paperclip className="w-5 h-5" />
+              </button>
+
+              <span
+                className="
+                  hidden
+                  sm:block
+                  ml-1
+                  text-xs
+                  text-slate-400
+                "
+              >
+                Paste or attach image
+              </span>
+            </div>
+
+            {/* =================================================
+                SEND
+            ================================================= */}
+
             <button
               onClick={() => sendToAI()}
-              disabled={!message.trim() || loading}
+              disabled={(!message.trim() && !selectedImage) || loading}
               className="
                 w-11
                 h-11
@@ -448,7 +806,13 @@ const MeetPointAI = () => {
               "
             >
               {loading ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
+                <Loader2
+                  className="
+                    w-5
+                    h-5
+                    animate-spin
+                  "
+                />
               ) : (
                 <ArrowRight className="w-5 h-5" />
               )}

@@ -1,5 +1,5 @@
 import { useAuth } from "@clerk/clerk-react";
-import { MapPin, MessageCircle, Plus, UserPlus } from "lucide-react";
+import { MapPin, MessageCircle, UserPlus, Plus } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import api from "../api/axios";
@@ -8,49 +8,64 @@ import { fetchUser } from "../features/user/usersSlice";
 
 const UserCard = ({ user }) => {
   const currentUser = useSelector((state) => state.user.value);
+
   const { getToken } = useAuth();
   const dispatch = useDispatch();
   const navigate = useNavigate();
+
+  // =====================================================
+  // FOLLOW USER
+  // =====================================================
 
   const handleFollow = async (e) => {
     e.stopPropagation();
 
     try {
+      const token = await getToken();
+
       const { data } = await api.post(
         "/api/user/follow",
         { id: user._id },
         {
           headers: {
-            Authorization: `Bearer ${await getToken()}`,
+            Authorization: `Bearer ${token}`,
           },
         },
       );
 
       if (data.success) {
         toast.success(data.message);
-        dispatch(fetchUser(await getToken()));
+
+        dispatch(fetchUser(token));
       } else {
         toast.error(data.message);
       }
     } catch (error) {
-      toast.error(error.message);
+      toast.error(error.response?.data?.message || error.message);
     }
   };
+
+  // =====================================================
+  // CONNECTION / MESSAGE
+  // =====================================================
 
   const handleConnectionRequest = async (e) => {
     e.stopPropagation();
 
-    if (currentUser?.connections.includes(user._id)) {
+    // Already connected → open messages
+    if (currentUser?.connections?.includes(user._id)) {
       return navigate("/messages/" + user._id);
     }
 
     try {
+      const token = await getToken();
+
       const { data } = await api.post(
         "/api/user/connect",
         { id: user._id },
         {
           headers: {
-            Authorization: `Bearer ${await getToken()}`,
+            Authorization: `Bearer ${token}`,
           },
         },
       );
@@ -61,13 +76,12 @@ const UserCard = ({ user }) => {
         toast.error(data.message);
       }
     } catch (error) {
-      toast.error(error.message);
+      toast.error(error.response?.data?.message || error.message);
     }
   };
 
   return (
     <div
-      onClick={() => navigate(`/profile/${user._id}`)}
       className="
         p-4
         pt-6
@@ -87,7 +101,6 @@ const UserCard = ({ user }) => {
         dark:border-slate-800
 
         rounded-md
-        cursor-pointer
 
         hover:shadow-lg
         dark:hover:shadow-black/40
@@ -95,7 +108,9 @@ const UserCard = ({ user }) => {
         transition-all
       "
     >
-      {/* USER INFO */}
+      {/* =====================================================
+          USER INFO
+      ===================================================== */}
 
       <div className="text-center">
         <img
@@ -117,14 +132,19 @@ const UserCard = ({ user }) => {
             font-semibold
             text-slate-800
             dark:text-white
-            hover:underline
           "
         >
           {user.full_name}
         </p>
 
         {user.username && (
-          <p className="text-gray-500 dark:text-slate-400 font-light">
+          <p
+            className="
+              text-gray-500
+              dark:text-slate-400
+              font-light
+            "
+          >
             @{user.username}
           </p>
         )}
@@ -145,21 +165,53 @@ const UserCard = ({ user }) => {
         )}
       </div>
 
-      {/* USER DETAILS */}
+      {/* =====================================================
+          USER DETAILS
+      ===================================================== */}
 
-      <div
-        className="
-          flex
-          items-center
-          justify-center
-          gap-2
-          mt-4
-          text-xs
-          text-gray-600
-          dark:text-slate-400
-        "
-      >
-        {user.location && (
+      <div className="mt-4">
+
+        {/* LOCATION + FOLLOWERS */}
+
+        <div
+          className="
+            flex
+            items-center
+            justify-center
+            gap-2
+            text-xs
+            text-gray-600
+            dark:text-slate-400
+          "
+        >
+          {/* LOCATION */}
+
+          {user.location && (
+            <div
+              className="
+                flex
+                items-center
+                gap-1
+                border
+                border-gray-300
+                dark:border-slate-700
+                rounded-full
+                px-3
+                py-1
+                bg-white
+                dark:bg-slate-800
+              "
+            >
+              <MapPin className="w-4 h-4" />
+
+              <span className="max-w-[110px] truncate">
+                {user.location}
+              </span>
+            </div>
+          )}
+
+          {/* FOLLOWERS */}
+
           <div
             className="
               flex
@@ -175,34 +227,75 @@ const UserCard = ({ user }) => {
               dark:bg-slate-800
             "
           >
-            <MapPin className="w-4 h-4" />
-            {user.location}
+            <span>
+              {user.followers?.length || 0} Followers
+            </span>
+          </div>
+        </div>
+
+        {/* =====================================================
+            RECOMMENDATION REASON
+        ===================================================== */}
+
+        {/* MUTUAL CONNECTION */}
+
+        {user.recommendation?.type === "mutual" && (
+          <div
+            className="
+              flex
+              items-center
+              justify-center
+              gap-1
+              mt-3
+              text-xs
+              text-indigo-600
+              dark:text-indigo-400
+              font-medium
+            "
+          >
+            <span>👥</span>
+
+            <span>
+              {user.recommendation.count}{" "}
+              {user.recommendation.count === 1
+                ? "mutual connection"
+                : "mutual connections"}
+            </span>
           </div>
         )}
 
-        <div
-          className="
-            flex
-            items-center
-            gap-1
-            border
-            border-gray-300
-            dark:border-slate-700
-            rounded-full
-            px-3
-            py-1
-            bg-white
-            dark:bg-slate-800
-          "
-        >
-          <span>{user.followers?.length || 0} Followers</span>
-        </div>
+        {/* SAME LOCATION */}
+
+        {user.recommendation?.type === "location" && (
+          <div
+            className="
+              flex
+              items-center
+              justify-center
+              gap-1
+              mt-3
+              text-xs
+              text-emerald-600
+              dark:text-emerald-400
+              font-medium
+            "
+          >
+            <span>📍</span>
+
+            <span>Same location</span>
+          </div>
+        )}
       </div>
 
-      {/* BUTTONS */}
+      {/* =====================================================
+          BUTTONS
+      ===================================================== */}
 
       <div className="flex mt-4 gap-2">
-        {/* FOLLOW */}
+
+        {/* =====================================================
+            FOLLOW
+        ===================================================== */}
 
         <button
           onClick={handleFollow}
@@ -211,6 +304,7 @@ const UserCard = ({ user }) => {
             w-full
             py-2
             rounded-md
+
             flex
             justify-center
             items-center
@@ -240,7 +334,9 @@ const UserCard = ({ user }) => {
             : "Follow"}
         </button>
 
-        {/* CONNECTION / MESSAGE */}
+        {/* =====================================================
+            CONNECTION / MESSAGE
+        ===================================================== */}
 
         <button
           onClick={handleConnectionRequest}
@@ -248,6 +344,7 @@ const UserCard = ({ user }) => {
             flex
             items-center
             justify-center
+
             w-16
 
             border
@@ -272,9 +369,23 @@ const UserCard = ({ user }) => {
           "
         >
           {currentUser?.connections?.includes(user._id) ? (
-            <MessageCircle className="w-5 h-5 group-hover:scale-105 transition" />
+            <MessageCircle
+              className="
+                w-5
+                h-5
+                group-hover:scale-105
+                transition
+              "
+            />
           ) : (
-            <Plus className="w-5 h-5 group-hover:scale-105 transition" />
+            <Plus
+              className="
+                w-5
+                h-5
+                group-hover:scale-105
+                transition
+              "
+            />
           )}
         </button>
       </div>

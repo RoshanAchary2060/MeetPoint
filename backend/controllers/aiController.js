@@ -18,10 +18,10 @@ export const meetPointAI = async (req, res) => {
 
     const { message } = req.body;
 
-    if (!message || !message.trim()) {
+    if ((!message || !message.trim()) && !req.file) {
       return res.status(400).json({
         success: false,
-        message: "Message is required",
+        message: "Message or image is required",
       });
     }
 
@@ -37,8 +37,10 @@ export const meetPointAI = async (req, res) => {
     }
 
     const result = await processMeetPointAI({
-      message: message.trim(),
+      message: message?.trim() || "",
       user,
+      imageBuffer: req.file?.buffer || null,
+      imageMimeType: req.file?.mimetype || null,
     });
 
     return res.json({
@@ -46,15 +48,11 @@ export const meetPointAI = async (req, res) => {
       ...result,
     });
   } catch (error) {
-    console.error(
-      "❌ MeetPoint AI error:",
-      error,
-    );
+    console.error("❌ MeetPoint AI error:", error);
 
     return res.status(500).json({
       success: false,
-      message:
-        "Failed to process MeetPoint AI request",
+      message: "Failed to process MeetPoint AI request",
     });
   }
 };
