@@ -49,7 +49,7 @@ const ProfileModal = ({ setShowEdit }) => {
 
       const token = await getToken();
 
-      await dispatch(updateUser({ userData, token }));
+      await dispatch(updateUser({ userData, token })).unwrap();
 
       setShowEdit(false);
     } catch (error) {
