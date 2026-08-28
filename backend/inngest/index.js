@@ -5,13 +5,13 @@ import sendEmail from "../configs/nodeMailer.js";
 import Story from "../models/Story.js";
 import Message from "../models/Message.js";
 import Report from "../models/Report.js";
+
 // Create a client to send and receive events
 export const inngest = new Inngest({
   id: "meetpoint-app",
 });
 
 // Inngest Functions to save user data to a database
-```js
 const syncUserCreation = inngest.createFunction(
   {
     id: "sync-user-from-clerk",
@@ -19,13 +19,8 @@ const syncUserCreation = inngest.createFunction(
   },
 
   async ({ event }) => {
-    const {
-      id,
-      first_name,
-      last_name,
-      email_addresses,
-      image_url,
-    } = event.data;
+    const { id, first_name, last_name, email_addresses, image_url } =
+      event.data;
 
     const email = email_addresses?.[0]?.email_address;
 
@@ -58,9 +53,7 @@ const syncUserCreation = inngest.createFunction(
 
       // Make sure the generated username is also unique
       while (await User.findOne({ username })) {
-        username = `${email.split("@")[0]}${Math.floor(
-          Math.random() * 10000,
-        )}`;
+        username = `${email.split("@")[0]}${Math.floor(Math.random() * 10000)}`;
       }
     }
 
@@ -81,7 +74,6 @@ const syncUserCreation = inngest.createFunction(
     console.log("✅ User synced successfully:", email);
   },
 );
-```
 
 const syncUserUpdation = inngest.createFunction(
   {
@@ -93,8 +85,8 @@ const syncUserUpdation = inngest.createFunction(
       event.data;
 
     const updatedUserData = {
-      email: email_addresses[0]?.email_address,
-      full_name: (first_name || "") + " " + (last_name || ""),
+      email: email_addresses?.[0]?.email_address,
+      full_name: `${first_name || ""} ${last_name || ""}`.trim(),
       profile_picture: image_url,
     };
 
@@ -133,9 +125,9 @@ const sendNewConnectionRequestReminder = inngest.createFunction(
       }
       const subject = `👋 New Connection Request`;
       const body = `<div style='font-family: Arial, sans-serif; padding: 20px;'>
-        <h2>Hi ${connection.to_user_id.full_name},<h2>
+        <h2>Hi ${connection.to_user_id.full_name},</h2>
         <p>You have a new connection request from ${connection.from_user_id.full_name} -
-        @${connection.from_user_id.full_name}</p>
+        @${connection.from_user_id.username}</p>
         <p>Click <a href='${process.env.FRONTEND_URL}/connections' style='color:
         #10b981;'>here</a> to accept or reject the request</p>
         <br/>
@@ -165,9 +157,9 @@ const sendNewConnectionRequestReminder = inngest.createFunction(
       }
       const subject = `👋 New Connection Request`;
       const body = `<div style='font-family: Arial, sans-serif; padding: 20px;'>
-        <h2>Hi ${connection.to_user_id.full_name},<h2>
+        <h2>Hi ${connection.to_user_id.full_name},</h2>
         <p>You have a new connection request from ${connection.from_user_id.full_name} -
-        @${connection.from_user_id.full_name}</p>
+        @${connection.from_user_id.username}</p>
         <p>Click <a href='${process.env.FRONTEND_URL}/connections' style='color:
         #10b981;'>here</a> to accept or reject the request</p>
         <br/>
@@ -210,32 +202,40 @@ const sendNotificationOfUnseenMessages = inngest.createFunction(
     ],
   },
   async ({ step }) => {
-    const messages = await Message.find({ seen: false }).populate("to_user_id");
-    const unseenCount = {};
-    messages.map((message) => {
-      unseenCount[message.to_user_id] =
-        (unseenCount[message.to_user_id] || 0) + 1;
-    });
-    for (const userId in unseenCount) {
-      const user = await User.findById(userId);
-      if (!user) continue;
-      const subject = `📩 You have ${unseenCount[userId]} unseen messages`;
-      const body = `
-        <div>
-        <h2>Hi ${user.full_name},</h2>
-        <p>You have ${unseenCount[userId]} unseen messages.</p>
-        <p>Click <a href="${process.env.FRONTEND_URL}/messages" style='color:#10b981;">here</a> to view them.</p>
-        <br />
-        <p>Thanks, <br/>MeetPoint- Stay Connected</p>
-        </div>
-        `;
-      await sendEmail({
-        to: user.email,
-        subject,
-        body,
+    await step.run("notify-unseen-messages", async () => {
+      const messages = await Message.find({ seen: false }).populate(
+        "to_user_id",
+      );
+      const unseenCount = {};
+
+      messages.forEach((message) => {
+        const userId = message.to_user_id?._id || message.to_user_id;
+        if (userId) {
+          unseenCount[userId] = (unseenCount[userId] || 0) + 1;
+        }
       });
-    }
-    return { message: "Unseen messages notification sent" };
+
+      for (const userId in unseenCount) {
+        const user = await User.findById(userId);
+        if (!user) continue;
+        const subject = `📩 You have ${unseenCount[userId]} unseen messages`;
+        const body = `
+          <div>
+          <h2>Hi ${user.full_name},</h2>
+          <p>You have ${unseenCount[userId]} unseen messages.</p>
+          <p>Click <a href="${process.env.FRONTEND_URL}/messages" style="color:#10b981;">here</a> to view them.</p>
+          <br />
+          <p>Thanks, <br/>MeetPoint- Stay Connected</p>
+          </div>
+          `;
+        await sendEmail({
+          to: user.email,
+          subject,
+          body,
+        });
+      }
+      return { message: "Unseen messages notification sent" };
+    });
   },
 );
 
@@ -401,6 +401,7 @@ const sendPostReportNotification = inngest.createFunction(
     });
   },
 );
+
 // Export Inngest functions array
 export const functions = [
   syncUserCreation,
