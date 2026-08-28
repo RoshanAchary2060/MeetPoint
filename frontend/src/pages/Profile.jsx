@@ -72,7 +72,7 @@ const Profile = () => {
     if (isOwnProfile && currentUser) {
       setUser(currentUser);
     }
-  }, [currentUser, isOwnProfile]);s
+  }, [currentUser, isOwnProfile]);
 
   // Calculate total likes received across all user's posts
   const totalLikesCount = useMemo(() => {
