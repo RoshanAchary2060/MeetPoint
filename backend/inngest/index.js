@@ -231,7 +231,113 @@ const sendPostReportNotification = inngest.createFunction(
 
       const subject = `🚨 New Post Report - MeetPoint`;
 
-      // your existing body here...
+      const body = `
+        <div style="
+          font-family: Arial, sans-serif;
+          max-width: 650px;
+          margin: 0 auto;
+          padding: 25px;
+          color: #1f2937;
+        ">
+
+          <h2 style="color: #dc2626;">
+            🚨 New Post Report
+          </h2>
+
+          <p>
+            A new post has been reported on <strong>MeetPoint</strong>.
+          </p>
+
+          <hr style="border: 0; border-top: 1px solid #e5e7eb;" />
+
+          <h3>Report Details</h3>
+
+          <p>
+            <strong>Subject:</strong> ${report.subject}
+          </p>
+
+          <p>
+            <strong>Description:</strong><br />
+            ${report.description}
+          </p>
+
+          <h3>Reporter</h3>
+
+          <p>
+            <strong>Name:</strong>
+            ${report.reporter?.full_name || "Unknown"}
+          </p>
+
+          <p>
+            <strong>Username:</strong>
+            @${report.reporter?.username || "Unknown"}
+          </p>
+
+          <h3>Reported Post</h3>
+
+          <p>
+            <strong>Post Owner:</strong>
+            ${report.post?.user?.full_name || "Unknown"}
+          </p>
+
+          <p>
+            <strong>Username:</strong>
+            @${report.post?.user?.username || "Unknown"}
+          </p>
+
+          <p>
+            <strong>Report ID:</strong>
+            ${report._id}
+          </p>
+
+          <p>
+            <strong>Reported At:</strong>
+            ${new Date(report.createdAt).toLocaleString("en-NP")}
+          </p>
+
+          ${
+            report.image_urls?.length
+              ? `
+                <h3>Evidence Images</h3>
+
+                ${report.image_urls
+                  .map(
+                    (url, index) => `
+                      <p>
+                        <a
+                          href="${url}"
+                          target="_blank"
+                          style="color: #4f46e5;"
+                        >
+                          View Evidence Image ${index + 1}
+                        </a>
+                      </p>
+                    `,
+                  )
+                  .join("")}
+              `
+              : `
+                <p>
+                  <strong>Evidence Images:</strong> None
+                </p>
+              `
+          }
+
+          <hr style="border: 0; border-top: 1px solid #e5e7eb;" />
+
+          <p>
+            Please review this report from the MeetPoint Admin Dashboard.
+          </p>
+
+          <br />
+
+          <p>
+            Thanks,<br />
+            <strong>MeetPoint - Stay Connected</strong>
+          </p>
+
+        </div>
+      `;
 
       const response = await sendEmail({
         to: process.env.ADMIN_EMAIL,
@@ -255,5 +361,5 @@ export const functions = [
   sendNewConnectionRequestReminder,
   deleteStory,
   sendNotificationOfUnseenMessages,
-  sendPostReportNotification
+  sendPostReportNotification,
 ];
