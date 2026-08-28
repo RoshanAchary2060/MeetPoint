@@ -291,6 +291,11 @@ const sendPostReportNotification = inngest.createFunction(
           </p>
 
           <p>
+            <strong>Post ID:</strong>
+            ${report.post?._id || "Unknown"}
+          </p>
+
+          <p>
             <strong>Reported At:</strong>
             ${new Date(report.createdAt).toLocaleString("en-NP")}
           </p>
