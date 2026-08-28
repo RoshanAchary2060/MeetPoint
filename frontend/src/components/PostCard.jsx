@@ -4,10 +4,12 @@ import {
   MessageCircle,
   Share2,
   Trash2,
+  Flag,
   ChevronLeft,
   ChevronRight,
   X,
 } from "lucide-react";
+import ReportModal from "./ReportModal.jsx";
 import moment from "moment";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
@@ -24,7 +26,7 @@ const PostCard = ({ post }) => {
   const [postData, setPostData] = useState(post);
   const [selectedImageIndex, setSelectedImageIndex] = useState(null);
   const [showComments, setShowComments] = useState(false);
-
+  const [showReport, setShowReport] = useState(false);
   const currentUser = useSelector((state) => state.user.value);
   const currentUserId = currentUser?._id;
 
@@ -378,6 +380,28 @@ const PostCard = ({ post }) => {
               onClick={handleDelete}
             />
           )}
+
+          {/* REPORT*/}
+          {/* REPORT */}
+
+          {currentUserId && postData.user._id !== currentUserId && (
+            <div
+              onClick={() => setShowReport(true)}
+              className="
+                flex
+                items-center
+                gap-1
+                cursor-pointer
+                hover:text-red-500
+                dark:hover:text-red-400
+                transition
+              "
+            >
+              <Flag className="w-4 h-4" />
+
+              <span className="hidden sm:inline">Report</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -390,6 +414,13 @@ const PostCard = ({ post }) => {
           post={postData}
           setPostData={setPostData}
           onClose={() => setShowComments(false)}
+        />
+      )}
+
+      {showReport && (
+        <ReportModal
+          post={postData}
+          onClose={() => setShowReport(false)}
         />
       )}
 

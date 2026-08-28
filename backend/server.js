@@ -57,6 +57,7 @@ app.use("/api/story", storyRouter);
 app.use("/api/message", messageRouter);
 app.use("/api/comment", commentRouter);
 app.use("/api/ai", aiRouter);
+app.use("/api/report", reportRouter);
 
 app.get("/api/test-route", (req, res) => {
   res.json({ success: true, message: "Backend is updated" });
@@ -68,6 +69,7 @@ const PORT = process.env.PORT || 4000;
 
 import http from "http";
 import { initializeSocket } from "./socket/socketHandler.js";
+import reportRouter from "./routes/reportRoutes.js";
 
 const server = http.createServer(app);
 

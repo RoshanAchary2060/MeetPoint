@@ -4,7 +4,7 @@ import Connection from "../models/Connection.js";
 import sendEmail from "../configs/nodeMailer.js";
 import Story from "../models/Story.js";
 import Message from "../models/Message.js";
-
+import Report from "../models/Report.js";
 // Create a client to send and receive events
 export const inngest = new Inngest({
   id: "meetpoint-app",
@@ -196,6 +196,57 @@ const sendNotificationOfUnseenMessages = inngest.createFunction(
   },
 );
 
+// INNGEST FUNCTION TO NOTIFY ADMIN WHEN A POST IS REPORTED
+const sendPostReportNotification = inngest.createFunction(
+  {
+    id: "send-post-report-notification",
+    triggers: [{ event: "app/post.reported" }],
+  },
+
+  async ({ event, step }) => {
+    console.log("🚨 REPORT EVENT RECEIVED:", event.data);
+
+    const { reportId } = event.data;
+
+    await step.run("send-post-report-email", async () => {
+      console.log("📧 STARTING REPORT EMAIL:", reportId);
+
+      const report = await Report.findById(reportId)
+        .populate("reporter")
+        .populate({
+          path: "post",
+          populate: {
+            path: "user",
+          },
+        });
+
+      console.log("📋 REPORT FOUND:", !!report);
+
+      if (!report) {
+        console.log("❌ REPORT NOT FOUND:", reportId);
+        return { message: "Report no longer exists" };
+      }
+
+      console.log("📧 ADMIN EMAIL:", process.env.ADMIN_EMAIL);
+
+      const subject = `🚨 New Post Report - MeetPoint`;
+
+      // your existing body here...
+
+      const response = await sendEmail({
+        to: process.env.ADMIN_EMAIL,
+        subject,
+        body,
+      });
+
+      console.log("✅ EMAIL SENT:", response.messageId);
+
+      return {
+        message: "Admin report notification sent",
+      };
+    });
+  },
+);
 // Export Inngest functions array
 export const functions = [
   syncUserCreation,
@@ -204,4 +255,5 @@ export const functions = [
   sendNewConnectionRequestReminder,
   deleteStory,
   sendNotificationOfUnseenMessages,
+  sendPostReportNotification
 ];
