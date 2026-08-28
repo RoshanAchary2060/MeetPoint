@@ -49,7 +49,7 @@ const ProfileModal = ({ setShowEdit }) => {
 
       const token = await getToken();
 
-      dispatch(updateUser({ userData, token }));
+      await dispatch(updateUser({ userData, token }));
 
       setShowEdit(false);
     } catch (error) {
@@ -61,7 +61,6 @@ const ProfileModal = ({ setShowEdit }) => {
     <div className="fixed top-0 left-0 bottom-0 right-0 z-110 h-screen overflow-y-scroll bg-black/50 dark:bg-black/70">
       <div className="max-w-2xl sm:py-6 mx-auto">
         <div className="bg-white dark:bg-slate-900 rounded-lg shadow-xl p-6 transition-colors">
-
           {/* Heading */}
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
             Edit Profile
@@ -75,7 +74,6 @@ const ProfileModal = ({ setShowEdit }) => {
               })
             }
           >
-
             {/* Profile Picture */}
             <div className="flex flex-col items-start gap-3">
               <label className="block text-sm font-medium text-gray-700 dark:text-slate-300">
@@ -127,7 +125,6 @@ const ProfileModal = ({ setShowEdit }) => {
                 className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1 cursor-pointer"
               >
                 Cover Photo
-
                 <input
                   hidden
                   type="file"
@@ -142,7 +139,6 @@ const ProfileModal = ({ setShowEdit }) => {
                     }
                   }}
                 />
-
                 <div className="group/cover relative overflow-hidden rounded-lg mt-2">
                   <img
                     src={
@@ -260,7 +256,6 @@ const ProfileModal = ({ setShowEdit }) => {
 
             {/* Actions */}
             <div className="flex justify-end space-x-3 pt-6">
-
               {/* Cancel */}
               <button
                 type="button"

@@ -68,6 +68,12 @@ const Profile = () => {
     fetchUser(targetId);
   }, [profileId, currentUser?._id]);
 
+  useEffect(() => {
+    if (isOwnProfile && currentUser) {
+      setUser(currentUser);
+    }
+  }, [currentUser, isOwnProfile]);s
+
   // Calculate total likes received across all user's posts
   const totalLikesCount = useMemo(() => {
     return posts.reduce((acc, post) => {
