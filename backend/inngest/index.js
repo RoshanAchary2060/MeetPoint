@@ -16,25 +16,46 @@ const syncUserCreation = inngest.createFunction(
     id: "sync-user-from-clerk",
     triggers: [{ event: "clerk/user.created" }],
   },
+
   async ({ event }) => {
     const { id, first_name, last_name, email_addresses, image_url } =
       event.data;
 
-    let username = email_addresses[0].email_address.split("@")[0];
+    const email = email_addresses?.[0]?.email_address;
 
-    // Check availability of username
-    const user = await User.findOne({ username });
-    if (user) {
-      username = username + Math.floor(Math.random() * 10000);
+    if (!email) {
+      throw new Error("No email address found for Clerk user");
+    }
+
+    // Build full name safely
+    const full_name = [first_name, last_name].filter(Boolean).join(" ").trim();
+
+    // Generate username from email
+    let username = email.split("@")[0];
+
+    // Check username availability
+    const existingUser = await User.findOne({ username });
+
+    if (existingUser) {
+      username = `${username}${Math.floor(Math.random() * 10000)}`;
     }
 
     const userData = {
       _id: id,
-      email: email_addresses[0].email_address,
-      full_name: (first_name || "") + " " + (last_name || ""),
-      profile_picture: image_url,
-      username: username,
+      email,
+      full_name,
+      profile_picture: image_url || "",
+      username,
     };
+
+    console.log("👤 SYNCING USER:", {
+      id,
+      email,
+      first_name,
+      last_name,
+      full_name,
+      username,
+    });
 
     await User.create(userData);
   },
