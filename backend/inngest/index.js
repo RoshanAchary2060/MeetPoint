@@ -11,6 +11,7 @@ export const inngest = new Inngest({
 });
 
 // Inngest Functions to save user data to a database
+```js
 const syncUserCreation = inngest.createFunction(
   {
     id: "sync-user-from-clerk",
@@ -18,48 +19,69 @@ const syncUserCreation = inngest.createFunction(
   },
 
   async ({ event }) => {
-    const { id, first_name, last_name, email_addresses, image_url } =
-      event.data;
+    const {
+      id,
+      first_name,
+      last_name,
+      email_addresses,
+      image_url,
+    } = event.data;
 
     const email = email_addresses?.[0]?.email_address;
 
     if (!email) {
-      throw new Error("No email address found for Clerk user");
+      throw new Error("User email is missing from Clerk event");
     }
 
-    // Build full name safely
-    const full_name = [first_name, last_name].filter(Boolean).join(" ").trim();
+    // ----------------------------------------------------------
+    // CREATE FULL NAME
+    // ----------------------------------------------------------
 
-    // Generate username from email
+    let fullName = `${first_name || ""} ${last_name || ""}`.trim();
+
+    // If Google/Clerk doesn't provide a name,
+    // use the part before @ as a fallback.
+    if (!fullName) {
+      fullName = email.split("@")[0];
+    }
+
+    // ----------------------------------------------------------
+    // CREATE UNIQUE USERNAME
+    // ----------------------------------------------------------
+
     let username = email.split("@")[0];
 
-    // Check username availability
-    const existingUser = await User.findOne({ username });
+    let existingUser = await User.findOne({ username });
 
     if (existingUser) {
       username = `${username}${Math.floor(Math.random() * 10000)}`;
+
+      // Make sure the generated username is also unique
+      while (await User.findOne({ username })) {
+        username = `${email.split("@")[0]}${Math.floor(
+          Math.random() * 10000,
+        )}`;
+      }
     }
+
+    // ----------------------------------------------------------
+    // CREATE USER
+    // ----------------------------------------------------------
 
     const userData = {
       _id: id,
       email,
-      full_name,
+      full_name: fullName,
       profile_picture: image_url || "",
       username,
     };
 
-    console.log("👤 SYNCING USER:", {
-      id,
-      email,
-      first_name,
-      last_name,
-      full_name,
-      username,
-    });
-
     await User.create(userData);
+
+    console.log("✅ User synced successfully:", email);
   },
 );
+```
 
 const syncUserUpdation = inngest.createFunction(
   {
